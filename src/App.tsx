@@ -9,11 +9,12 @@ import { ProgramsPage } from '@/pages/ProgramsPage';
 import { ProgramDetailPage } from '@/pages/ProgramDetailPage';
 import { ScholarshipsPage } from '@/pages/ScholarshipsPage';
 import { AboutPage } from '@/pages/AboutPage';
-import { DashboardPage } from '@/pages/DashboardPage'; // Only this one
-import { useEffect, useState } from 'react';
+import { DashboardPage } from '@/pages/DashboardPage';
 import { PrivacyPage } from '@/pages/PrivacyPage';
 import { TermsPage } from '@/pages/TermsPage';
+import { DeadlineAlert } from '@/components/DeadlineAlert';
 import { ThemeProvider } from '@/contexts/ThemeContext';
+import { useEffect, useState } from 'react';
 
 function AppContent() {
   const { route } = useRouter();
@@ -28,10 +29,10 @@ function AppContent() {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-red-50 flex items-center justify-center p-4">
-        <div className="bg-white rounded-lg shadow-lg p-6">
+      <div className="min-h-screen bg-red-50 dark:bg-red-950 flex items-center justify-center p-4 transition-colors">
+        <div className="bg-white dark:bg-slate-900 rounded-lg shadow-lg p-6">
           <h1 className="text-xl font-bold text-red-600">Error</h1>
-          <p className="text-sm text-slate-600">{error.message}</p>
+          <p className="text-sm text-slate-600 dark:text-slate-400">{error.message}</p>
         </div>
       </div>
     );
@@ -39,10 +40,10 @@ function AppContent() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50">
+      <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-950 transition-colors">
         <div className="text-center">
           <div className="h-8 w-8 animate-spin rounded-full border-4 border-dutch-500 border-t-transparent mx-auto mb-4"></div>
-          <p>Loading...</p>
+          <p className="text-slate-600 dark:text-slate-400">Loading...</p>
         </div>
       </div>
     );
@@ -59,12 +60,13 @@ function AppContent() {
         {route.name === 'program-detail' && <ProgramDetailPage programId={route.id} />}
         {route.name === 'scholarships' && <ScholarshipsPage />}
         {route.name === 'dashboard' && <DashboardPage />}
-        {route.name === 'profile' && <DashboardPage />} {/* Redirect old profile links */}
+        {route.name === 'profile' && <DashboardPage />}
         {route.name === 'about' && <AboutPage />}
         {route.name === 'privacy' && <PrivacyPage />}
         {route.name === 'terms' && <TermsPage />}
       </main>
       <Footer />
+      <DeadlineAlert />
     </div>
   );
 }

@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react';
-import { Clock, AlertCircle, X } from 'lucide-react';
-import { getRelevantDeadlines, getDaysUntil, getUrgencyColor } from '@/data/deadlines';
+import { Clock, X } from 'lucide-react'; // Removed AlertCircle
+import { getRelevantDeadlines, getDaysUntil } from '@/data/deadlines'; // Removed getUrgencyColor
 import { useAuth } from '@/contexts/AuthContext';
 
 export function DeadlineAlert() {
-  const { user, profile } = useAuth();
+  const { profile } = useAuth(); // Removed 'user' from destructuring
   const [showAlert, setShowAlert] = useState(true);
   const [upcoming, setUpcoming] = useState<any[]>([]);
 
