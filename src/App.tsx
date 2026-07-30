@@ -13,7 +13,7 @@ import { DashboardPage } from '@/pages/DashboardPage'; // Only this one
 import { useEffect, useState } from 'react';
 import { PrivacyPage } from '@/pages/PrivacyPage';
 import { TermsPage } from '@/pages/TermsPage';
-
+import { ThemeProvider } from '@/contexts/ThemeContext';
 
 function AppContent() {
   const { route } = useRouter();
@@ -49,7 +49,7 @@ function AppContent() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col">
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col transition-colors">
       <Navbar />
       <main className="flex-1">
         {route.name === 'home' && <HomePage />}
@@ -71,10 +71,12 @@ function AppContent() {
 
 export function App() {
   return (
-    <RouterProvider>
-      <AuthProvider>
-        <AppContent />
-      </AuthProvider>
-    </RouterProvider>
+    <ThemeProvider>
+      <RouterProvider>
+        <AuthProvider>
+          <AppContent />
+        </AuthProvider>
+      </RouterProvider>
+    </ThemeProvider>
   );
 }

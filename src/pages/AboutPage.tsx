@@ -44,7 +44,7 @@ export function AboutPage() {
   const { navigate } = useRouter();
 
   return (
-    <div>
+    <div className="transition-colors">
       {/* Hero */}
       <section className="relative overflow-hidden bg-navy-950 py-20 lg:py-28">
         <div className="absolute inset-0 opacity-5">
@@ -64,13 +64,13 @@ export function AboutPage() {
       </section>
 
       {/* Stats */}
-      <section className="border-b border-slate-200 bg-white py-12">
+      <section className="border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 py-12 transition-colors">
         <div className="container-page">
           <div className="grid grid-cols-2 gap-6 sm:grid-cols-4">
             {stats.map((s) => (
               <div key={s.label} className="text-center">
-                <div className="text-3xl font-extrabold text-navy-900 sm:text-4xl">{s.value}</div>
-                <div className="mt-1 text-xs text-slate-500 sm:text-sm">{s.label}</div>
+                <div className="text-3xl font-extrabold text-navy-900 dark:text-white sm:text-4xl transition-colors">{s.value}</div>
+                <div className="mt-1 text-xs text-slate-500 dark:text-slate-400 sm:text-sm transition-colors">{s.label}</div>
               </div>
             ))}
           </div>
@@ -78,19 +78,19 @@ export function AboutPage() {
       </section>
 
       {/* Mission */}
-      <section className="bg-white py-20">
+      <section className="bg-white dark:bg-slate-950 py-20 transition-colors">
         <div className="container-page max-w-3xl">
           <div className="flex items-center gap-3">
             <Target className="h-6 w-6 text-dutch-500" />
-            <h2 className="text-2xl font-extrabold text-navy-900 sm:text-3xl">Our mission</h2>
+            <h2 className="text-2xl font-extrabold text-navy-900 dark:text-white sm:text-3xl transition-colors">Our mission</h2>
           </div>
-          <p className="mt-5 text-lg leading-relaxed text-slate-600">
+          <p className="mt-5 text-lg leading-relaxed text-slate-600 dark:text-slate-300 transition-colors">
             The Netherlands is one of Europe's most popular study destinations, with over 122,000
             international students. Yet the application process is fragmented across IND, Nuffic,
             Studielink, and individual universities — each with different rules for EU and non-EU
             students. We centralise all of that into one clear, accurate, up-to-date platform.
           </p>
-          <p className="mt-4 text-lg leading-relaxed text-slate-600">
+          <p className="mt-4 text-lg leading-relaxed text-slate-600 dark:text-slate-300 transition-colors">
             Whether you need to know the exact IND financial proof amount, which programs have numerus
             fixus deadlines on January 15, or how your secondary diploma evaluates against Dutch VWO
             or HAVO — we have the answer, sourced from official channels.
@@ -99,19 +99,19 @@ export function AboutPage() {
       </section>
 
       {/* Values */}
-      <section className="bg-slate-50 py-20">
+      <section className="bg-slate-50 dark:bg-slate-950 py-20 transition-colors">
         <div className="container-page">
-          <h2 className="text-2xl font-extrabold text-navy-900 sm:text-3xl">What we stand for</h2>
+          <h2 className="text-2xl font-extrabold text-navy-900 dark:text-white sm:text-3xl transition-colors">What we stand for</h2>
           <div className="mt-10 grid gap-6 md:grid-cols-3">
             {values.map((v) => {
               const Icon = v.icon;
               return (
-                <div key={v.title} className="rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
-                  <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-navy-50">
-                    <Icon className="h-6 w-6 text-navy-700" />
+                <div key={v.title} className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-8 shadow-sm transition-colors">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-navy-50 dark:bg-navy-900/50">
+                    <Icon className="h-6 w-6 text-navy-700 dark:text-navy-300" />
                   </div>
-                  <h3 className="mt-5 text-lg font-bold text-navy-900">{v.title}</h3>
-                  <p className="mt-2 text-sm leading-relaxed text-slate-500">{v.body}</p>
+                  <h3 className="mt-5 text-lg font-bold text-navy-900 dark:text-white transition-colors">{v.title}</h3>
+                  <p className="mt-2 text-sm leading-relaxed text-slate-500 dark:text-slate-400 transition-colors">{v.body}</p>
                 </div>
               );
             })}
@@ -120,9 +120,9 @@ export function AboutPage() {
       </section>
 
       {/* Tools overview */}
-      <section className="bg-white py-20">
+      <section className="bg-white dark:bg-slate-950 py-20 transition-colors">
         <div className="container-page">
-          <h2 className="text-2xl font-extrabold text-navy-900 sm:text-3xl">What we offer</h2>
+          <h2 className="text-2xl font-extrabold text-navy-900 dark:text-white sm:text-3xl transition-colors">What we offer</h2>
           <div className="mt-10 grid gap-6 md:grid-cols-2 lg:grid-cols-4">
             {[
               { icon: Compass, title: 'Immigration Roadmap', body: 'A personalised step-by-step visa timeline.', route: 'roadmap' as const },
@@ -135,13 +135,13 @@ export function AboutPage() {
                 <button
                   key={tool.title}
                   onClick={() => navigate({ name: tool.route })}
-                  className="group flex flex-col rounded-2xl border border-slate-200 bg-white p-6 text-left shadow-sm transition-all hover:-translate-y-0.5 hover:border-navy-300 hover:shadow-lg"
+                  className="group flex flex-col rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 text-left shadow-sm transition-all hover:-translate-y-0.5 hover:border-navy-300 dark:hover:border-navy-700 hover:shadow-lg"
                 >
-                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-navy-50 transition-colors group-hover:bg-dutch-500">
-                    <Icon className="h-5 w-5 text-navy-700 transition-colors group-hover:text-white" />
+                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-navy-50 dark:bg-navy-900/50 transition-colors group-hover:bg-dutch-500">
+                    <Icon className="h-5 w-5 text-navy-700 dark:text-navy-300 transition-colors group-hover:text-white" />
                   </div>
-                  <h3 className="mt-4 text-base font-bold text-navy-900">{tool.title}</h3>
-                  <p className="mt-1 flex-1 text-sm text-slate-500">{tool.body}</p>
+                  <h3 className="mt-4 text-base font-bold text-navy-900 dark:text-white transition-colors">{tool.title}</h3>
+                  <p className="mt-1 flex-1 text-sm text-slate-500 dark:text-slate-400 transition-colors">{tool.body}</p>
                   <span className="mt-3 flex items-center gap-1 text-xs font-semibold text-dutch-500">
                     Open <ArrowRight className="h-3 w-3 transition-transform group-hover:translate-x-0.5" />
                   </span>
@@ -177,11 +177,11 @@ export function AboutPage() {
       </section>
 
       {/* Contact CTA */}
-      <section className="bg-slate-50 py-20">
+      <section className="bg-slate-50 dark:bg-slate-950 py-20 transition-colors">
         <div className="container-page max-w-2xl text-center">
           <Heart className="mx-auto h-8 w-8 text-dutch-500" />
-          <h2 className="mt-4 text-2xl font-extrabold text-navy-900 sm:text-3xl">Have a question or correction?</h2>
-          <p className="mt-3 text-slate-500">
+          <h2 className="mt-4 text-2xl font-extrabold text-navy-900 dark:text-white sm:text-3xl transition-colors">Have a question or correction?</h2>
+          <p className="mt-3 text-slate-500 dark:text-slate-400 transition-colors">
             We are always looking to improve. If you spot an outdated figure or have a suggestion,
             we would love to hear from you.
           </p>

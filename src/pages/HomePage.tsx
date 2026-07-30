@@ -9,16 +9,17 @@ import {
   Globe2,
   Clock,
   Users,
+  BookOpen,
+  Award,
   CheckCircle2,
   ChevronRight,
   MapPin,
-  BookOpen,
-  Award,
 } from 'lucide-react';
 import { useRouter } from '@/router';
 import { programs, universities } from '@/data/programs';
 import { cities } from '@/data/cities';
 import { scholarships } from '@/data/scholarships';
+
 const heroBg = 'https://images.pexels.com/photos/6152717/pexels-photo-6152717.jpeg?auto=compress&cs=tinysrgb&w=1920';
 
 const heroStats = [
@@ -65,7 +66,7 @@ export function HomePage() {
   };
 
   return (
-    <div>
+    <div className="transition-colors">
       {/* ── HERO ─────────────────────────────────────────────── */}
       <section className="relative min-h-[88vh] overflow-hidden flex flex-col">
         {/* Background image + layered overlays */}
@@ -108,14 +109,14 @@ export function HomePage() {
 
             {/* Search bar */}
             <form onSubmit={handleSearch} className="mt-9 flex w-full max-w-xl overflow-hidden rounded-xl shadow-2xl">
-              <div className="flex flex-1 items-center bg-white px-4">
+              <div className="flex flex-1 items-center bg-white dark:bg-slate-800 px-4 transition-colors">
                 <Search className="mr-2 h-5 w-5 shrink-0 text-slate-400" />
                 <input
                   type="text"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="Search university programs, visa requirements, or deadlines..."
-                  className="min-w-0 flex-1 bg-transparent py-4 text-sm text-navy-900 placeholder-slate-400 focus:outline-none"
+                  className="min-w-0 flex-1 bg-transparent py-4 text-sm text-navy-900 dark:text-white placeholder-slate-400 focus:outline-none"
                 />
               </div>
               <button
@@ -157,16 +158,16 @@ export function HomePage() {
       </section>
 
       {/* ── TOOLS GRID ────────────────────────────────────────── */}
-      <section className="bg-white py-24">
+      <section className="bg-white dark:bg-slate-950 py-24 transition-colors">
         <div className="container-page">
           <div className="flex flex-col items-start gap-2 lg:flex-row lg:items-end lg:justify-between">
             <div>
               <p className="text-xs font-bold uppercase tracking-widest text-dutch-500">Platform tools</p>
-              <h2 className="mt-2 text-3xl font-extrabold tracking-tight text-navy-900 sm:text-4xl">
+              <h2 className="mt-2 text-3xl font-extrabold tracking-tight text-navy-900 dark:text-white sm:text-4xl transition-colors">
                 Everything you need, in one place
               </h2>
             </div>
-            <p className="max-w-sm text-sm leading-relaxed text-slate-500 lg:text-right">
+            <p className="max-w-sm text-sm leading-relaxed text-slate-500 dark:text-slate-400 lg:text-right transition-colors">
               Three tools built around the real challenges international students face applying to Dutch higher education.
             </p>
           </div>
@@ -178,18 +179,18 @@ export function HomePage() {
                 <button
                   key={feat.title}
                   onClick={() => navigate({ name: feat.route })}
-                  className="group relative flex flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white p-8 text-left shadow-sm transition-all duration-300 hover:-translate-y-1 hover:border-navy-300 hover:shadow-xl"
+                  className="group relative flex flex-col overflow-hidden rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-8 text-left shadow-sm transition-all duration-300 hover:-translate-y-1 hover:border-navy-300 dark:hover:border-navy-700 hover:shadow-xl"
                 >
                   {/* Number watermark */}
-                  <span className="absolute right-6 top-6 text-6xl font-extrabold text-slate-100 select-none transition-colors group-hover:text-navy-100">
+                  <span className="absolute right-6 top-6 text-6xl font-extrabold text-slate-100 dark:text-slate-800 select-none transition-colors group-hover:text-navy-100 dark:group-hover:text-navy-900/30">
                     {feat.number}
                   </span>
-                  <div className="relative z-10 flex h-12 w-12 items-center justify-center rounded-xl bg-navy-50 transition-colors group-hover:bg-dutch-500">
-                    <Icon className="h-6 w-6 text-navy-700 transition-colors group-hover:text-white" />
+                  <div className="relative z-10 flex h-12 w-12 items-center justify-center rounded-xl bg-navy-50 dark:bg-navy-900/50 transition-colors group-hover:bg-dutch-500">
+                    <Icon className="h-6 w-6 text-navy-700 dark:text-navy-300 transition-colors group-hover:text-white" />
                   </div>
-                  <h3 className="relative z-10 mt-6 text-xl font-bold text-navy-900">{feat.title}</h3>
-                  <p className="relative z-10 mt-2 flex-1 text-sm leading-relaxed text-slate-500">{feat.description}</p>
-                  <div className="relative z-10 mt-6 flex items-center gap-2 text-sm font-semibold text-navy-700 transition-colors group-hover:text-dutch-600">
+                  <h3 className="relative z-10 mt-6 text-xl font-bold text-navy-900 dark:text-white transition-colors">{feat.title}</h3>
+                  <p className="relative z-10 mt-2 flex-1 text-sm leading-relaxed text-slate-500 dark:text-slate-400 transition-colors">{feat.description}</p>
+                  <div className="relative z-10 mt-6 flex items-center gap-2 text-sm font-semibold text-navy-700 dark:text-navy-300 transition-colors group-hover:text-dutch-600 dark:group-hover:text-dutch-400">
                     Open tool
                     <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
                   </div>
@@ -259,18 +260,18 @@ export function HomePage() {
       </section>
 
       {/* ── FEATURED PROGRAMS ─────────────────────────────────── */}
-      <section className="bg-slate-50 py-24">
+      <section className="bg-slate-50 dark:bg-slate-950 py-24 transition-colors">
         <div className="container-page">
           <div className="flex items-end justify-between">
             <div>
               <p className="text-xs font-bold uppercase tracking-widest text-dutch-500">Program directory</p>
-              <h2 className="mt-2 text-3xl font-extrabold tracking-tight text-navy-900 sm:text-4xl">
+              <h2 className="mt-2 text-3xl font-extrabold tracking-tight text-navy-900 dark:text-white sm:text-4xl transition-colors">
                 Featured English-taught programs
               </h2>
             </div>
             <button
               onClick={() => navigate({ name: 'programs' })}
-              className="hidden items-center gap-1.5 text-sm font-semibold text-navy-700 transition-colors hover:text-dutch-600 sm:flex"
+              className="hidden items-center gap-1.5 text-sm font-semibold text-navy-700 dark:text-navy-300 transition-colors hover:text-dutch-600 sm:flex"
             >
               View all {programs.length} programs
               <ChevronRight className="h-4 w-4" />
@@ -284,33 +285,33 @@ export function HomePage() {
                 <button
                   key={program.id}
                   onClick={() => navigate({ name: 'program-detail', id: program.id })}
-                  className="group flex flex-col rounded-2xl border border-slate-200 bg-white p-6 text-left shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:border-navy-300 hover:shadow-lg"
+                  className="group flex flex-col rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 text-left shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:border-navy-300 dark:hover:border-navy-700 hover:shadow-lg"
                 >
                   <div className="flex items-center justify-between gap-2">
                     <div className="flex items-center gap-1.5">
-                      <span className="rounded-full bg-navy-50 px-2.5 py-0.5 text-xs font-semibold text-navy-700">
+                      <span className="rounded-full bg-navy-50 dark:bg-navy-900/50 px-2.5 py-0.5 text-xs font-semibold text-navy-700 dark:text-navy-300">
                         {program.degree === 'bachelor' ? 'BSc / BA' : 'MSc / MA'}
                       </span>
-                      <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-medium text-slate-600">
+                      <span className="rounded-full bg-slate-100 dark:bg-slate-800 px-2.5 py-0.5 text-xs font-medium text-slate-600 dark:text-slate-400">
                         {program.field}
                       </span>
                     </div>
                     {program.numerousFixus && (
-                      <span className="rounded-full bg-dutch-50 px-2.5 py-0.5 text-xs font-semibold text-dutch-700">
+                      <span className="rounded-full bg-dutch-50 dark:bg-dutch-900/30 px-2.5 py-0.5 text-xs font-semibold text-dutch-700 dark:text-dutch-400">
                         Numerus Fixus
                       </span>
                     )}
                   </div>
 
-                  <h3 className="mt-4 text-base font-bold leading-snug text-navy-900 group-hover:text-navy-700">
+                  <h3 className="mt-4 text-base font-bold leading-snug text-navy-900 dark:text-white transition-colors group-hover:text-navy-700 dark:group-hover:text-navy-300">
                     {program.name}
                   </h3>
-                  <div className="mt-1.5 flex items-center gap-1.5 text-sm text-slate-500">
+                  <div className="mt-1.5 flex items-center gap-1.5 text-sm text-slate-500 dark:text-slate-400 transition-colors">
                     <MapPin className="h-3.5 w-3.5 text-dutch-400" />
                     {uni?.shortName} · {uni?.city}
                   </div>
 
-                  <div className="mt-4 flex items-center gap-4 text-xs text-slate-500">
+                  <div className="mt-4 flex items-center gap-4 text-xs text-slate-500 dark:text-slate-400 transition-colors">
                     <span className="flex items-center gap-1">
                       <Clock className="h-3.5 w-3.5" /> {program.duration}
                     </span>
@@ -319,12 +320,12 @@ export function HomePage() {
                     </span>
                   </div>
 
-                  <div className="mt-4 flex items-center justify-between border-t border-slate-100 pt-4">
+                  <div className="mt-4 flex items-center justify-between border-t border-slate-100 dark:border-slate-800 pt-4 transition-colors">
                     <div>
-                      <span className="text-xs text-slate-400">Deadline</span>
-                      <p className="text-sm font-bold text-navy-800">{program.deadline}</p>
+                      <span className="text-xs text-slate-400 dark:text-slate-500">Deadline</span>
+                      <p className="text-sm font-bold text-navy-800 dark:text-navy-200">{program.deadline}</p>
                     </div>
-                    <span className="flex items-center gap-1 text-sm font-semibold text-navy-700 transition-colors group-hover:text-dutch-600">
+                    <span className="flex items-center gap-1 text-sm font-semibold text-navy-700 dark:text-navy-300 transition-colors group-hover:text-dutch-600 dark:group-hover:text-dutch-400">
                       View details
                       <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
                     </span>
@@ -343,16 +344,16 @@ export function HomePage() {
       </section>
 
       {/* ── CITY COMPARISON ───────────────────────────────────── */}
-      <section className="relative overflow-hidden bg-white py-24">
+      <section className="relative overflow-hidden bg-white dark:bg-slate-950 py-24 transition-colors">
         <div className="container-page">
           <div className="flex flex-col gap-2 lg:flex-row lg:items-end lg:justify-between">
             <div>
               <p className="text-xs font-bold uppercase tracking-widest text-dutch-500">Cost of living</p>
-              <h2 className="mt-2 text-3xl font-extrabold tracking-tight text-navy-900 sm:text-4xl">
+              <h2 className="mt-2 text-3xl font-extrabold tracking-tight text-navy-900 dark:text-white sm:text-4xl transition-colors">
                 Compare your student city
               </h2>
             </div>
-            <p className="max-w-sm text-sm leading-relaxed text-slate-500 lg:text-right">
+            <p className="max-w-sm text-sm leading-relaxed text-slate-500 dark:text-slate-400 lg:text-right transition-colors">
               Living costs vary dramatically. Know your numbers before you commit.
             </p>
           </div>
@@ -362,25 +363,25 @@ export function HomePage() {
               <button
                 key={city.id}
                 onClick={() => navigate({ name: 'calculator' })}
-                className="group relative flex flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white p-6 text-left shadow-sm transition-all duration-300 hover:-translate-y-1 hover:border-dutch-400 hover:shadow-xl"
+                className="group relative flex flex-col overflow-hidden rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 text-left shadow-sm transition-all duration-300 hover:-translate-y-1 hover:border-dutch-400 hover:shadow-xl"
               >
                 <div className="flex items-start justify-between">
                   <div>
-                    <h3 className="text-base font-bold text-navy-900">{city.name}</h3>
-                    <p className="mt-0.5 text-xs text-slate-400">{city.region}</p>
+                    <h3 className="text-base font-bold text-navy-900 dark:text-white transition-colors">{city.name}</h3>
+                    <p className="mt-0.5 text-xs text-slate-400 dark:text-slate-500">{city.region}</p>
                   </div>
-                  <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-slate-500">
+                  <span className="rounded-full bg-slate-100 dark:bg-slate-800 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">
                     #{i + 1}
                   </span>
                 </div>
                 <div className="mt-5">
-                  <span className="text-3xl font-extrabold text-navy-900">€{city.averageRent}</span>
-                  <span className="ml-1 text-sm text-slate-400">/mo rent</span>
+                  <span className="text-3xl font-extrabold text-navy-900 dark:text-white transition-colors">€{city.averageRent}</span>
+                  <span className="ml-1 text-sm text-slate-400 dark:text-slate-500">/mo rent</span>
                 </div>
-                <div className="mt-1 text-xs text-slate-500">
+                <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">
                   Range: €{city.rentRange[0]}–{city.rentRange[1]}
                 </div>
-                <div className="mt-4 border-t border-slate-100 pt-4 text-xs text-slate-400">
+                <div className="mt-4 border-t border-slate-100 dark:border-slate-800 pt-4 text-xs text-slate-400 dark:text-slate-500 transition-colors">
                   {city.studentPopulation.toLocaleString()} students
                 </div>
                 <div className="mt-2 flex items-center gap-1 text-xs font-semibold text-dutch-500 opacity-0 transition-opacity group-hover:opacity-100">
@@ -400,18 +401,18 @@ export function HomePage() {
       </section>
 
       {/* ── SCHOLARSHIPS ──────────────────────────────────────── */}
-      <section className="bg-slate-50 py-24">
+      <section className="bg-slate-50 dark:bg-slate-950 py-24 transition-colors">
         <div className="container-page">
           <div className="flex items-end justify-between">
             <div>
               <p className="text-xs font-bold uppercase tracking-widest text-dutch-500">Funding</p>
-              <h2 className="mt-2 text-3xl font-extrabold tracking-tight text-navy-900 sm:text-4xl">
+              <h2 className="mt-2 text-3xl font-extrabold tracking-tight text-navy-900 dark:text-white sm:text-4xl transition-colors">
                 Scholarships for international students
               </h2>
             </div>
             <button
               onClick={() => navigate({ name: 'scholarships' })}
-              className="hidden items-center gap-1.5 text-sm font-semibold text-navy-700 hover:text-dutch-600 sm:flex"
+              className="hidden items-center gap-1.5 text-sm font-semibold text-navy-700 dark:text-navy-300 hover:text-dutch-600 sm:flex transition-colors"
             >
               View all scholarships <ChevronRight className="h-4 w-4" />
             </button>
@@ -422,37 +423,37 @@ export function HomePage() {
               <button
                 key={sch.id}
                 onClick={() => navigate({ name: 'scholarships' })}
-                className="group flex flex-col rounded-2xl border border-slate-200 bg-white p-6 text-left shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:border-navy-300 hover:shadow-lg"
+                className="group flex flex-col rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 text-left shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:border-navy-300 dark:hover:border-navy-700 hover:shadow-lg"
               >
                 <div className="flex items-center justify-between gap-2">
                   <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${
                     sch.nationality === 'non-eu'
-                      ? 'bg-dutch-50 text-dutch-700'
+                      ? 'bg-dutch-50 dark:bg-dutch-900/30 text-dutch-700 dark:text-dutch-400'
                       : sch.nationality === 'eu'
-                      ? 'bg-navy-50 text-navy-700'
-                      : 'bg-slate-100 text-slate-700'
+                      ? 'bg-navy-50 dark:bg-navy-900/30 text-navy-700 dark:text-navy-300'
+                      : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300'
                   }`}>
                     {sch.nationality === 'non-eu' ? 'Non-EU only' : sch.nationality === 'eu' ? 'EU only' : 'All nationalities'}
                   </span>
-                  <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-medium text-slate-600">
+                  <span className="rounded-full bg-slate-100 dark:bg-slate-800 px-2.5 py-0.5 text-xs font-medium text-slate-600 dark:text-slate-400">
                     {sch.degreeLevel === 'both' ? 'BSc + MSc' : sch.degreeLevel === 'master' ? 'MSc' : 'BSc'}
                   </span>
                 </div>
 
-                <h3 className="mt-4 text-base font-bold text-navy-900">{sch.name}</h3>
-                <p className="mt-1 text-xs text-slate-500">{sch.provider}</p>
+                <h3 className="mt-4 text-base font-bold text-navy-900 dark:text-white transition-colors">{sch.name}</h3>
+                <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{sch.provider}</p>
 
-                <div className="mt-4 text-3xl font-extrabold text-navy-900">
+                <div className="mt-4 text-3xl font-extrabold text-navy-900 dark:text-white transition-colors">
                   €{sch.amount.toLocaleString()}
                 </div>
 
-                <p className="mt-3 flex-1 text-xs leading-relaxed text-slate-500 line-clamp-3">{sch.description}</p>
+                <p className="mt-3 flex-1 text-xs leading-relaxed text-slate-500 dark:text-slate-400 line-clamp-3">{sch.description}</p>
 
-                <div className="mt-4 flex items-center justify-between border-t border-slate-100 pt-4">
-                  <span className="text-xs text-slate-400">
-                    Deadline: <span className="font-semibold text-navy-800">{sch.deadline}</span>
+                <div className="mt-4 flex items-center justify-between border-t border-slate-100 dark:border-slate-800 pt-4 transition-colors">
+                  <span className="text-xs text-slate-400 dark:text-slate-500">
+                    Deadline: <span className="font-semibold text-navy-800 dark:text-navy-200">{sch.deadline}</span>
                   </span>
-                  <span className="flex items-center gap-1 text-xs font-semibold text-navy-700 transition-colors group-hover:text-dutch-600">
+                  <span className="flex items-center gap-1 text-xs font-semibold text-navy-700 dark:text-navy-300 transition-colors group-hover:text-dutch-600 dark:group-hover:text-dutch-400">
                     Details <ArrowRight className="h-3.5 w-3.5" />
                   </span>
                 </div>
@@ -463,12 +464,12 @@ export function HomePage() {
       </section>
 
       {/* ── TRUST STRIP ───────────────────────────────────────── */}
-      <section className="border-y border-slate-200 bg-white py-14">
+      <section className="border-y border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 py-14 transition-colors">
         <div className="container-page">
           <div className="flex flex-col items-center gap-6 lg:flex-row lg:justify-between">
             <div className="text-center lg:text-left">
-              <h2 className="text-xl font-bold text-navy-900">Guidance you can rely on</h2>
-              <p className="mt-1 text-sm text-slate-500">
+              <h2 className="text-xl font-bold text-navy-900 dark:text-white transition-colors">Guidance you can rely on</h2>
+              <p className="mt-1 text-sm text-slate-500 dark:text-slate-400 transition-colors">
                 Every tool is built around official IND, Nuffic, and Studielink regulations.
               </p>
             </div>
@@ -483,7 +484,7 @@ export function HomePage() {
               ].map((badge) => (
                 <span
                   key={badge}
-                  className="flex items-center gap-1.5 rounded-full border border-slate-200 bg-slate-50 px-4 py-2 text-xs font-medium text-navy-700"
+                  className="flex items-center gap-1.5 rounded-full border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-4 py-2 text-xs font-medium text-navy-700 dark:text-navy-300 transition-colors"
                 >
                   <CheckCircle2 className="h-3.5 w-3.5 text-dutch-500" />
                   {badge}
@@ -511,7 +512,7 @@ export function HomePage() {
             <button onClick={() => navigate({ name: 'roadmap' })} className="btn-accent">
               Build my roadmap <ArrowRight className="h-4 w-4" />
             </button>
-            <button onClick={() => navigate({ name: 'programs' })} className="btn-outline">
+            <button onClick={() => navigate({ name: 'programs' })} className="btn-outline border-white/20 text-white hover:bg-white/10">
               Browse programs <ShieldCheck className="h-4 w-4" />
             </button>
           </div>
