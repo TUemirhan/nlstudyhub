@@ -1,299 +1,600 @@
-import { useState } from 'react';
-import {
-  Compass,
-  Globe,
-  FileText,
-  GraduationCap,
-  CheckCircle2,
-  AlertTriangle,
-  ExternalLink,
-  ArrowRight,
-  RotateCcw,
-  MapPin,
-  Clock,
-  Calendar,
-} from 'lucide-react';
-import { getFilteredSteps } from '@/data/roadmap';
-import type { NationalityStatus, DegreeLevel, RoadmapStep } from '@/data/types';
+import { useState, useEffect } from 'react';
+import { MapPin, Check, Globe, GraduationCap, BookOpen, Wallet, Calendar, Home, ArrowRight, ArrowLeft, FileText, Plane, CreditCard } from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext';
+import { doc, setDoc, getDoc } from 'firebase/firestore';
+import { db } from '@/firebase/config';
 
-const phaseColors: Record<string, string> = {
-  Preparation: 'navy',
-  Application: 'dutch',
-  Immigration: 'navy',
-  Arrival: 'dutch',
+type RoadmapData = {
+  nationality: 'eu' | 'non-eu' | null;
+  degree: 'bachelor' | 'master' | null;
+  field: string | null;
+  hasEnglishTest: boolean | null;
+  budget: 'scholarship-needed' | 'self-funded' | 'partial' | null;
+  intake: 'sept-2025' | 'sept-2026' | 'feb-2026' | null;
+  housing: 'university' | 'private' | 'undecided' | null;
+  createdAt?: string;
+  updatedAt?: string;
+  completedSteps?: string[];
 };
 
+const steps = [
+  { id: 'basic', title: 'Basic Info' },
+  { id: 'academic', title: 'Academic' },
+  { id: 'financial', title: 'Financial' },
+  { id: 'logistics', title: 'Logistics' },
+];
+
 export function RoadmapPage() {
-  const [nationality, setNationality] = useState<NationalityStatus | null>(null);
-  const [degree, setDegree] = useState<DegreeLevel | null>(null);
-  const [started, setStarted] = useState(false);
+  const { user, profile } = useAuth();
+  const [currentStep, setCurrentStep] = useState(0);
+  const [showResults, setShowResults] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [data, setData] = useState<RoadmapData>({
+    nationality: profile?.nationality || null,
+    degree: profile?.targetDegree || null,
+    field: null,
+    hasEnglishTest: null,
+    budget: null,
+    intake: null,
+    housing: null,
+  });
 
-  const canStart = nationality && degree;
-  const steps = started && nationality && degree ? getFilteredSteps(nationality, degree) : [];
+  // Load existing roadmap from Firestore on mount
+  useEffect(() => {
+    const loadRoadmap = async () => {
+      if (!user) {
+        setLoading(false);
+        return;
+      }
 
-  const reset = () => {
-    setNationality(null);
-    setDegree(null);
-    setStarted(false);
+      try {
+        const roadmapDoc = await getDoc(doc(db, 'roadmaps', user.uid));
+        if (roadmapDoc.exists()) {
+          const roadmapData = roadmapDoc.data() as RoadmapData;
+          setData(roadmapData);
+          // If roadmap exists, show results immediately
+          if (roadmapData.nationality && roadmapData.degree) {
+            setShowResults(true);
+          }
+        }
+      } catch (error) {
+        console.error('Error loading roadmap:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadRoadmap();
+  }, [user]);
+
+  const updateData = (key: keyof RoadmapData, value: any) => {
+    setData(prev => ({ ...prev, [key]: value }));
   };
+
+  const canProceed = () => {
+    switch (currentStep) {
+      case 0: return data.nationality && data.degree;
+      case 1: return data.field && data.hasEnglishTest !== null;
+      case 2: return data.budget !== null;
+      case 3: return data.intake && data.housing;
+      default: return true;
+    }
+  };
+
+  const generateRoadmap = async () => {
+    if (!user) {
+      // Fallback to localStorage if not logged in
+      localStorage.setItem('nlstudyhub_roadmap', JSON.stringify(data));
+      setShowResults(true);
+      window.scrollTo(0, 0);
+      return;
+    }
+
+    try {
+      // Save to Firestore with timestamp
+      const roadmapData: RoadmapData = {
+        ...data,
+        nationality: data.nationality!,
+        degree: data.degree!,
+        field: data.field!,
+        hasEnglishTest: data.hasEnglishTest!,
+        budget: data.budget!,
+        intake: data.intake!,
+        housing: data.housing!,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        completedSteps: [],
+      };
+
+      await setDoc(doc(db, 'roadmaps', user.uid), roadmapData);
+      
+      // Also save to localStorage as backup/cache
+      localStorage.setItem('nlstudyhub_roadmap', JSON.stringify(roadmapData));
+      
+      setShowResults(true);
+      window.scrollTo(0, 0);
+    } catch (error) {
+      console.error('Error saving roadmap:', error);
+      alert('Failed to save roadmap. Please try again.');
+    }
+  };
+
+  const resetRoadmap = () => {
+    setShowResults(false);
+    setCurrentStep(0);
+    setData({
+      nationality: profile?.nationality || null,
+      degree: profile?.targetDegree || null,
+      field: null,
+      hasEnglishTest: null,
+      budget: null,
+      intake: null,
+      housing: null,
+    });
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="h-12 w-12 border-4 border-dutch-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-slate-600">Loading your roadmap...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (showResults) {
+    return <RoadmapResults data={data} onReset={resetRoadmap} />;
+  }
 
   return (
     <div className="animate-fade-in">
-      {/* Header */}
-      <section className="border-b border-slate-200 bg-navy-950 py-16">
+      <section className="bg-navy-950 py-16">
         <div className="container-page">
-          <div className="mx-auto max-w-3xl">
-            <div className="flex items-center gap-2 text-dutch-400">
-              <Compass className="h-5 w-5" />
-              <span className="text-sm font-semibold uppercase tracking-wider">Immigration Roadmap</span>
-            </div>
-            <h1 className="mt-3 text-3xl font-extrabold text-white sm:text-4xl lg:text-5xl">
-              Your personalized application & immigration timeline
-            </h1>
+          <div className="mx-auto max-w-3xl text-center">
+            <h1 className="text-3xl font-bold text-white">Immigration & Study Roadmap</h1>
             <p className="mt-4 text-lg text-slate-300">
-              Answer two questions and we’ll generate a sequential, step-by-step roadmap from your
-              first application to your first day as a registered student in the Netherlands.
+              Answer a few questions to get a personalized step-by-step guide.
             </p>
           </div>
         </div>
       </section>
 
-      <div className="container-page py-12">
-        {!started ? (
-          /* Wizard Selection */
-          <div className="mx-auto max-w-3xl">
-            <div className="card p-8 sm:p-10">
-              <div className="mb-8">
-                <div className="flex items-center gap-2 text-sm font-semibold text-navy-700">
-                  <span className="flex h-7 w-7 items-center justify-center rounded-full bg-navy-800 text-xs text-white">1</span>
-                  What is your nationality status?
+      <div className="container-page py-10">
+        <div className="mx-auto max-w-3xl">
+          {/* Progress Steps */}
+          <div className="mb-8">
+            <div className="flex items-center justify-between mb-2">
+              {steps.map((step, idx) => (
+                <div key={step.id} className="flex items-center">
+                  <div className={`h-8 w-8 rounded-full flex items-center justify-center text-sm font-bold ${
+                    idx <= currentStep ? 'bg-dutch-500 text-white' : 'bg-slate-200 text-slate-500'
+                  }`}>
+                    {idx < currentStep ? <Check className="h-4 w-4" /> : idx + 1}
+                  </div>
+                  {idx < steps.length - 1 && (
+                    <div className={`w-full h-1 mx-2 ${idx < currentStep ? 'bg-dutch-500' : 'bg-slate-200'}`} />
+                  )}
                 </div>
-                <p className="mt-1 ml-9 text-sm text-slate-500">
-                  This determines whether you need an MVV entry visa and IND residence permit.
-                </p>
-                <div className="mt-4 grid gap-4 sm:grid-cols-2">
-                  <button
-                    onClick={() => setNationality('eu')}
-                    className={`flex items-start gap-3 rounded-xl border-2 p-5 text-left transition-all ${
-                      nationality === 'eu'
-                        ? 'border-navy-600 bg-navy-50'
-                        : 'border-slate-200 hover:border-navy-300 hover:bg-slate-50'
-                    }`}
+              ))}
+            </div>
+          </div>
+
+          {/* Step Content */}
+          <div className="card p-6 space-y-6">
+            {currentStep === 0 && (
+              <>
+                <div>
+                  <h2 className="text-lg font-bold text-navy-900 flex items-center gap-2">
+                    <Globe className="h-5 w-5 text-dutch-500" /> Nationality Status
+                  </h2>
+                  <div className="grid grid-cols-2 gap-4 mt-4">
+                    <button
+                      onClick={() => updateData('nationality', 'eu')}
+                      className={`p-4 rounded-lg border-2 text-left transition-all ${
+                        data.nationality === 'eu' ? 'border-dutch-500 bg-dutch-50' : 'border-slate-200'
+                      }`}
+                    >
+                      <div className="font-semibold text-navy-900">EU / EEA Citizen</div>
+                      <div className="text-xs text-slate-500 mt-1">No visa required. Register for BSN.</div>
+                    </button>
+                    <button
+                      onClick={() => updateData('nationality', 'non-eu')}
+                      className={`p-4 rounded-lg border-2 text-left transition-all ${
+                        data.nationality === 'non-eu' ? 'border-dutch-500 bg-dutch-50' : 'border-slate-200'
+                      }`}
+                    >
+                      <div className="font-semibold text-navy-900">Non-EU / Non-EEA</div>
+                      <div className="text-xs text-slate-500 mt-1">Requires MVV visa and VVR permit.</div>
+                    </button>
+                  </div>
+                </div>
+
+                <div className="pt-6 border-t border-slate-100">
+                  <h2 className="text-lg font-bold text-navy-900 flex items-center gap-2">
+                    <GraduationCap className="h-5 w-5 text-dutch-500" /> Degree Level
+                  </h2>
+                  <div className="grid grid-cols-2 gap-4 mt-4">
+                    <button
+                      onClick={() => updateData('degree', 'bachelor')}
+                      className={`p-4 rounded-lg border-2 text-left transition-all ${
+                        data.degree === 'bachelor' ? 'border-dutch-500 bg-dutch-50' : 'border-slate-200'
+                      }`}
+                    >
+                      <div className="font-semibold text-navy-900">Bachelor's</div>
+                      <div className="text-xs text-slate-500 mt-1">3-4 years. May include matching.</div>
+                    </button>
+                    <button
+                      onClick={() => updateData('degree', 'master')}
+                      className={`p-4 rounded-lg border-2 text-left transition-all ${
+                        data.degree === 'master' ? 'border-dutch-500 bg-dutch-50' : 'border-slate-200'
+                      }`}
+                    >
+                      <div className="font-semibold text-navy-900">Master's</div>
+                      <div className="text-xs text-slate-500 mt-1">1-2 years. Direct admission.</div>
+                    </button>
+                  </div>
+                </div>
+              </>
+            )}
+
+            {currentStep === 1 && (
+              <>
+                <div>
+                  <h2 className="text-lg font-bold text-navy-900 flex items-center gap-2">
+                    <BookOpen className="h-5 w-5 text-dutch-500" /> Field of Study
+                  </h2>
+                  <select
+                    value={data.field || ''}
+                    onChange={(e) => updateData('field', e.target.value)}
+                    className="w-full mt-4 rounded-lg border border-slate-200 px-4 py-3"
                   >
-                    <Globe className="h-6 w-6 shrink-0 text-navy-700" />
-                    <div>
-                      <div className="font-bold text-navy-900">EU / EEA Citizen</div>
-                      <p className="mt-1 text-sm text-slate-500">
-                        No visa required. Register with municipality for BSN.
-                      </p>
-                    </div>
-                    {nationality === 'eu' && <CheckCircle2 className="ml-auto h-5 w-5 text-navy-600" />}
-                  </button>
-                  <button
-                    onClick={() => setNationality('non-eu')}
-                    className={`flex items-start gap-3 rounded-xl border-2 p-5 text-left transition-all ${
-                      nationality === 'non-eu'
-                        ? 'border-dutch-500 bg-dutch-50'
-                        : 'border-slate-200 hover:border-dutch-300 hover:bg-slate-50'
-                    }`}
-                  >
-                    <FileText className="h-6 w-6 shrink-0 text-dutch-600" />
-                    <div>
-                      <div className="font-bold text-navy-900">Non-EU / Non-EEA Citizen</div>
-                      <p className="mt-1 text-sm text-slate-500">
-                        Requires MVV entry visa and VVR residence permit via university sponsorship.
-                      </p>
-                    </div>
-                    {nationality === 'non-eu' && <CheckCircle2 className="ml-auto h-5 w-5 text-dutch-600" />}
-                  </button>
+                    <option value="">Select your field</option>
+                    <option value="engineering">Engineering & Technology</option>
+                    <option value="business">Business & Economics</option>
+                    <option value="computer-science">Computer Science & IT</option>
+                    <option value="life-sciences">Life Sciences & Medicine</option>
+                    <option value="social-sciences">Social Sciences</option>
+                    <option value="arts">Arts & Humanities</option>
+                    <option value="law">Law & International Relations</option>
+                  </select>
+                </div>
+
+                <div className="pt-6 border-t border-slate-100">
+                  <h2 className="text-lg font-bold text-navy-900">English Proficiency</h2>
+                  <div className="grid grid-cols-2 gap-4 mt-4">
+                    <button
+                      onClick={() => updateData('hasEnglishTest', true)}
+                      className={`p-4 rounded-lg border-2 text-left transition-all ${
+                        data.hasEnglishTest === true ? 'border-dutch-500 bg-dutch-50' : 'border-slate-200'
+                      }`}
+                    >
+                      <div className="font-semibold text-navy-900">Yes, I have it</div>
+                      <div className="text-xs text-slate-500 mt-1">IELTS 6.5+ or TOEFL 90+</div>
+                    </button>
+                    <button
+                      onClick={() => updateData('hasEnglishTest', false)}
+                      className={`p-4 rounded-lg border-2 text-left transition-all ${
+                        data.hasEnglishTest === false ? 'border-dutch-500 bg-dutch-50' : 'border-slate-200'
+                      }`}
+                    >
+                      <div className="font-semibold text-navy-900">Not yet</div>
+                      <div className="text-xs text-slate-500 mt-1">Need to schedule test</div>
+                    </button>
+                  </div>
+                </div>
+              </>
+            )}
+
+            {currentStep === 2 && (
+              <div>
+                <h2 className="text-lg font-bold text-navy-900 flex items-center gap-2">
+                  <Wallet className="h-5 w-5 text-dutch-500" /> Financial Situation
+                </h2>
+                <div className="space-y-3 mt-4">
+                  {[
+                    { key: 'scholarship-needed', label: 'Need Full Scholarship', desc: 'Looking for full funding', color: 'red' },
+                    { key: 'partial', label: 'Partial Support Needed', desc: 'Can cover some costs', color: 'amber' },
+                    { key: 'self-funded', label: 'Self-Funded', desc: 'Can cover all costs', color: 'green' },
+                  ].map((option) => (
+                    <button
+                      key={option.key}
+                      onClick={() => updateData('budget', option.key as any)}
+                      className={`w-full p-4 rounded-lg border-2 text-left transition-all flex items-center gap-3 ${
+                        data.budget === option.key ? 'border-dutch-500 bg-dutch-50' : 'border-slate-200'
+                      }`}
+                    >
+                      <div className={`h-10 w-10 rounded-full bg-${option.color}-100 flex items-center justify-center text-${option.color}-600`}>
+                        <Wallet className="h-5 w-5" />
+                      </div>
+                      <div>
+                        <div className="font-semibold text-navy-900">{option.label}</div>
+                        <div className="text-xs text-slate-500">{option.desc}</div>
+                      </div>
+                    </button>
+                  ))}
                 </div>
               </div>
+            )}
 
-              <div className="mb-8">
-                <div className="flex items-center gap-2 text-sm font-semibold text-navy-700">
-                  <span className="flex h-7 w-7 items-center justify-center rounded-full bg-navy-800 text-xs text-white">2</span>
-                  What degree level are you applying for?
+            {currentStep === 3 && (
+              <>
+                <div>
+                  <h2 className="text-lg font-bold text-navy-900 flex items-center gap-2">
+                    <Calendar className="h-5 w-5 text-dutch-500" /> Intended Intake
+                  </h2>
+                  <div className="grid grid-cols-2 gap-3 mt-4">
+                    {[
+                      { key: 'sept-2025', label: 'September 2025', desc: 'Main intake' },
+                      { key: 'feb-2026', label: 'February 2026', desc: 'Limited programs' },
+                      { key: 'sept-2026', label: 'September 2026', desc: 'Planning ahead' },
+                    ].map((intake) => (
+                      <button
+                        key={intake.key}
+                        onClick={() => updateData('intake', intake.key as any)}
+                        className={`p-4 rounded-lg border-2 text-left transition-all ${
+                          data.intake === intake.key ? 'border-dutch-500 bg-dutch-50' : 'border-slate-200'
+                        }`}
+                      >
+                        <div className="font-semibold text-navy-900">{intake.label}</div>
+                        <div className="text-xs text-slate-500 mt-1">{intake.desc}</div>
+                      </button>
+                    ))}
+                  </div>
                 </div>
-                <p className="mt-1 ml-9 text-sm text-slate-500">
-                  Bachelor’s and Master’s applicants follow different admission and matching procedures.
-                </p>
-                <div className="mt-4 grid gap-4 sm:grid-cols-2">
-                  <button
-                    onClick={() => setDegree('bachelor')}
-                    className={`flex items-start gap-3 rounded-xl border-2 p-5 text-left transition-all ${
-                      degree === 'bachelor'
-                        ? 'border-navy-600 bg-navy-50'
-                        : 'border-slate-200 hover:border-navy-300 hover:bg-slate-50'
-                    }`}
-                  >
-                    <GraduationCap className="h-6 w-6 shrink-0 text-navy-700" />
-                    <div>
-                      <div className="font-bold text-navy-900">Bachelor’s Degree</div>
-                      <p className="mt-1 text-sm text-slate-500">
-                        Undergraduate programs (3–4 years). Includes matching procedure.
-                      </p>
-                    </div>
-                    {degree === 'bachelor' && <CheckCircle2 className="ml-auto h-5 w-5 text-navy-600" />}
-                  </button>
-                  <button
-                    onClick={() => setDegree('master')}
-                    className={`flex items-start gap-3 rounded-xl border-2 p-5 text-left transition-all ${
-                      degree === 'master'
-                        ? 'border-navy-600 bg-navy-50'
-                        : 'border-slate-200 hover:border-navy-300 hover:bg-slate-50'
-                    }`}
-                  >
-                    <GraduationCap className="h-6 w-6 shrink-0 text-navy-700" />
-                    <div>
-                      <div className="font-bold text-navy-900">Master’s Degree</div>
-                      <p className="mt-1 text-sm text-slate-500">
-                        Graduate programs (1–2 years). No matching procedure required.
-                      </p>
-                    </div>
-                    {degree === 'master' && <CheckCircle2 className="ml-auto h-5 w-5 text-navy-600" />}
-                  </button>
-                </div>
-              </div>
 
+                <div className="pt-6 border-t border-slate-100">
+                  <h2 className="text-lg font-bold text-navy-900 flex items-center gap-2">
+                    <Home className="h-5 w-5 text-dutch-500" /> Housing Preference
+                  </h2>
+                  <div className="space-y-3 mt-4">
+                    {[
+                      { key: 'university', label: 'University Housing', desc: 'Guaranteed first year (apply early!)' },
+                      { key: 'private', label: 'Private Market', desc: 'More options but competitive' },
+                      { key: 'undecided', label: 'Undecided', desc: 'Need guidance' },
+                    ].map((h) => (
+                      <button
+                        key={h.key}
+                        onClick={() => updateData('housing', h.key as any)}
+                        className={`w-full p-4 rounded-lg border-2 text-left transition-all ${
+                          data.housing === h.key ? 'border-dutch-500 bg-dutch-50' : 'border-slate-200'
+                        }`}
+                      >
+                        <div className="font-semibold text-navy-900">{h.label}</div>
+                        <div className="text-xs text-slate-500">{h.desc}</div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
+
+          {/* Navigation */}
+          <div className="flex justify-between mt-6">
+            <button
+              onClick={() => setCurrentStep(prev => prev - 1)}
+              disabled={currentStep === 0}
+              className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-slate-600 hover:text-navy-900 disabled:opacity-0"
+            >
+              <ArrowLeft className="h-4 w-4" /> Back
+            </button>
+            
+            {currentStep < steps.length - 1 ? (
               <button
-                disabled={!canStart}
-                onClick={() => setStarted(true)}
-                className="btn-primary w-full text-base"
+                onClick={() => setCurrentStep(prev => prev + 1)}
+                disabled={!canProceed()}
+                className="flex items-center gap-2 px-6 py-2 bg-navy-900 text-white text-sm font-medium rounded-lg hover:bg-navy-800 disabled:opacity-50"
               >
-                Generate My Roadmap
-                <ArrowRight className="h-5 w-5" />
+                Next <ArrowRight className="h-4 w-4" />
               </button>
-              {!canStart && (
-                <p className="mt-2 text-center text-xs text-slate-400">
-                  Select both options above to continue.
-                </p>
-              )}
-            </div>
-          </div>
-        ) : (
-          /* Generated Roadmap */
-          <div>
-            {/* Summary bar */}
-            <div className="mb-8 flex flex-col gap-4 rounded-2xl border border-slate-200 bg-slate-50 p-5 sm:flex-row sm:items-center sm:justify-between">
-              <div className="flex flex-wrap items-center gap-3 text-sm">
-                <span className="badge bg-navy-100 text-navy-800">
-                  {nationality === 'eu' ? 'EU / EEA' : 'Non-EU / Non-EEA'}
-                </span>
-                <span className="badge bg-dutch-100 text-dutch-800">
-                  {degree === 'bachelor' ? 'Bachelor’s' : 'Master’s'}
-                </span>
-                <span className="text-slate-500">{steps.length} steps in your roadmap</span>
-              </div>
-              <button onClick={reset} className="btn-outline text-sm">
-                <RotateCcw className="h-4 w-4" />
-                Start Over
+            ) : (
+              <button
+                onClick={generateRoadmap}
+                disabled={!canProceed()}
+                className="flex items-center gap-2 px-6 py-2 bg-dutch-500 text-white text-sm font-medium rounded-lg hover:bg-dutch-600 disabled:opacity-50"
+              >
+                Generate My Roadmap <ArrowRight className="h-4 w-4" />
               </button>
-            </div>
-
-            {/* Timeline */}
-            <div className="relative">
-              <div className="absolute left-6 top-0 h-full w-0.5 bg-slate-200 sm:left-8" />
-              <div className="space-y-6">
-                {steps.map((step, idx) => (
-                  <RoadmapStepCard key={step.id} step={step} index={idx} />
-                ))}
-              </div>
-            </div>
-
-            {/* CTA */}
-            <div className="mt-12 rounded-2xl bg-navy-950 p-8 text-center">
-              <h3 className="text-xl font-bold text-white">Ready to plan your finances?</h3>
-              <p className="mt-2 text-sm text-slate-400">
-                Now that you know your steps, calculate exactly how much financial proof you need
-                for your IND visa and compare living costs across student cities.
-              </p>
-              <a href="#/calculator" className="btn-accent mt-5">
-                Open the Cost & IND Calculator
-                <ArrowRight className="h-4 w-4" />
-              </a>
-            </div>
+            )}
           </div>
-        )}
+        </div>
       </div>
     </div>
   );
 }
 
-function RoadmapStepCard({ step, index }: { step: RoadmapStep; index: number }) {
-  const phaseColor = phaseColors[step.phase] || 'navy';
-  const isDutch = phaseColor === 'dutch';
-
+// Results Component
+function RoadmapResults({ data, onReset }: { data: RoadmapData; onReset: () => void }) {
+  const steps = generateSteps(data);
+  
   return (
-    <div className="relative pl-16 sm:pl-20">
-      {/* Node */}
-      <div
-        className={`absolute left-0 top-1 flex h-12 w-12 items-center justify-center rounded-full border-4 border-white shadow-md sm:h-16 sm:w-16 ${
-          isDutch ? 'bg-dutch-500' : 'bg-navy-800'
-        }`}
-      >
-        <span className="text-lg font-extrabold text-white sm:text-xl">{index + 1}</span>
-      </div>
+    <div className="animate-fade-in">
+      <section className="bg-navy-950 py-16">
+        <div className="container-page">
+          <div className="mx-auto max-w-4xl">
+            <h1 className="text-3xl font-bold text-white">Your Personalized Roadmap</h1>
+            <p className="mt-4 text-lg text-slate-300">
+              Based on your {data.nationality === 'eu' ? 'EU' : 'Non-EU'} status and {data.degree}'s degree goals.
+            </p>
+          </div>
+        </div>
+      </section>
 
-      <div className="card p-6">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <span
-              className={`badge ${
-                isDutch ? 'bg-dutch-50 text-dutch-700' : 'bg-navy-50 text-navy-700'
-              }`}
+      <div className="container-page py-10">
+        <div className="mx-auto max-w-4xl">
+          <div className="space-y-6">
+            {steps.map((step, idx) => (
+              <div key={idx} className="card p-6 flex gap-4 hover:shadow-lg transition-shadow">
+                <div className="h-10 w-10 rounded-full bg-dutch-500 text-white flex items-center justify-center font-bold shrink-0">
+                  {idx + 1}
+                </div>
+                <div className="flex-1">
+                  <div className="flex items-center gap-2 mb-2">
+                    <step.icon className="h-5 w-5 text-dutch-500" />
+                    <h3 className="font-bold text-navy-900">{step.title}</h3>
+                    <span className="text-xs px-2 py-1 bg-slate-100 text-slate-600 rounded-full ml-auto">
+                      {step.timeline}
+                    </span>
+                  </div>
+                  <p className="text-sm text-slate-600 mb-3">{step.description}</p>
+                  
+                  {step.warning && (
+                    <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-800 mb-3">
+                      ⚠️ {step.warning}
+                    </div>
+                  )}
+                  
+                  <ul className="space-y-2">
+                    {step.tasks.map((task, tidx) => (
+                      <li key={tidx} className="flex items-start gap-2 text-sm">
+                        <Check className="h-4 w-4 text-dutch-500 shrink-0 mt-0.5" />
+                        <span className="text-slate-700">{task}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="mt-8 flex justify-center gap-4">
+            <button
+              onClick={onReset}
+              className="px-6 py-2 bg-white border-2 border-slate-200 text-slate-700 text-sm font-medium rounded-lg hover:bg-slate-50"
             >
-              {step.phase}
-            </span>
-            <h3 className="mt-2 text-lg font-bold text-navy-900">{step.title}</h3>
-          </div>
-          <div className="flex flex-col gap-1 text-right text-xs text-slate-500">
-            <span className="flex items-center gap-1">
-              <Calendar className="h-3.5 w-3.5" /> {step.timeline}
-            </span>
-            <span className="flex items-center gap-1">
-              <Clock className="h-3.5 w-3.5" /> {step.duration}
-            </span>
+              Create New Roadmap
+            </button>
+            <button
+              onClick={() => window.print()}
+              className="px-6 py-2 bg-navy-900 text-white text-sm font-medium rounded-lg hover:bg-navy-800"
+            >
+              Print / Save PDF
+            </button>
           </div>
         </div>
-
-        <p className="mt-3 text-sm leading-relaxed text-slate-600">{step.description}</p>
-
-        <div className="mt-4">
-          <h4 className="text-xs font-semibold uppercase tracking-wider text-slate-400">Key tasks</h4>
-          <ul className="mt-2 space-y-2">
-            {step.tasks.map((task, i) => (
-              <li key={i} className="flex items-start gap-2 text-sm text-slate-600">
-                <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-dutch-500" />
-                {task}
-              </li>
-            ))}
-          </ul>
-        </div>
-
-        {step.warning && (
-          <div className="mt-4 flex items-start gap-2 rounded-lg border border-dutch-200 bg-dutch-50 p-3">
-            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-dutch-600" />
-            <p className="text-sm text-dutch-800">{step.warning}</p>
-          </div>
-        )}
-
-        {step.links.length > 0 && (
-          <div className="mt-4 flex flex-wrap gap-2">
-            {step.links.map((link) => (
-              <a
-                key={link.label}
-                href={link.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-navy-700 transition-colors hover:border-navy-400 hover:bg-navy-50"
-              >
-                <ExternalLink className="h-3.5 w-3.5" />
-                {link.label}
-              </a>
-            ))}
-          </div>
-        )}
       </div>
     </div>
   );
+}
+
+function generateSteps(data: RoadmapData) {
+  const steps: Array<{
+    title: string;
+    description: string;
+    timeline: string;
+    icon: any;
+    warning?: string;
+    tasks: string[];
+  }> = [];
+
+  // Step 1: Research & Preparation
+  steps.push({
+    title: 'Research & Shortlist Universities',
+    description: `Find ${data.degree} programs in ${data.field} that match your profile.`,
+    timeline: 'Now - 6 months before',
+    icon: FileText,
+    tasks: [
+      'Check admission requirements on Studielink',
+      'Verify your diploma is equivalent to Dutch VWO/HBO',
+      'Note application deadlines (Jan 15 for Numerus Fixus)',
+    ],
+  });
+
+  // Step 2: English Test (if needed)
+  if (data.hasEnglishTest === false) {
+    steps.push({
+      title: 'Take English Proficiency Test',
+      description: 'Most programs require IELTS 6.5+ or TOEFL 90+.',
+      timeline: '6-8 months before intake',
+      icon: FileText,
+      warning: 'Test dates fill up quickly in peak season!',
+      tasks: [
+        'Register for IELTS/TOEFL at nearest test center',
+        'Allow 2 weeks for results',
+        'Send scores directly to universities via test center',
+      ],
+    });
+  }
+
+  // Step 3: Financial Preparation
+  if (data.nationality === 'non-eu') {
+    steps.push({
+      title: 'Prepare Financial Proof',
+      description: 'IND requires €1,350/month in your bank account.',
+      timeline: '3-4 months before visa application',
+      icon: CreditCard,
+      warning: 'Funds must be available for full 12 months!',
+      tasks: [
+        'Calculate total needed: €16,200+ for living costs',
+        'Add tuition fees (€8,000-€20,000/year)',
+        'Get bank statements certified and translated',
+        'Apply for NL Scholarship if eligible',
+      ],
+    });
+  }
+
+  // Step 4: Application
+  steps.push({
+    title: 'Submit Applications via Studielink',
+    description: data.degree === 'bachelor' ? 'Bachelor applications use centralized system.' : 'Master applications may be direct to university.',
+    timeline: data.intake === 'sept-2025' ? 'Before Jan 15, 2025' : 'Check specific deadlines',
+    icon: FileText,
+    warning: data.degree === 'bachelor' ? 'Numerus Fixus programs have strict Jan 15 deadline!' : undefined,
+    tasks: [
+      'Create Studielink account',
+      'Pay application fees (€75-€100)',
+      'Upload transcripts, CV, motivation letter',
+      'Request reference letters from professors',
+    ],
+  });
+
+  // Step 5: Visa (Non-EU only)
+  if (data.nationality === 'non-eu') {
+    steps.push({
+      title: 'Apply for Entry Visa (MVV) & Residence Permit',
+      description: 'Your university sponsors your application.',
+      timeline: '3 months before departure',
+      icon: Plane,
+      tasks: [
+        'University applies to IND on your behalf',
+        'Pay IND fees (€192 for MVV, €174 for VVR)',
+        'Submit biometric data at Dutch embassy',
+        'Wait 4-8 weeks for decision',
+      ],
+    });
+  }
+
+  // Step 6: Housing
+  steps.push({
+    title: 'Secure Housing',
+    description: data.housing === 'university' ? 'Apply for university housing immediately upon admission.' : 'Start searching private market 3-4 months ahead.',
+    timeline: 'Immediately after admission',
+    icon: Home,
+    warning: 'Amsterdam/Utrecht have severe housing shortages!',
+    tasks: [
+      data.housing === 'university' ? 'Apply via university housing office' : 'Check Kamernet, Pararius, Facebook groups',
+      'Budget €400-€800/month for rent',
+      'Sign contract and pay deposit (usually 2 months)',
+      'Arrange utilities if private housing',
+    ],
+  });
+
+  // Step 7: Arrival
+  steps.push({
+    title: 'Arrival & Registration',
+    description: 'Complete mandatory registrations within days of arrival.',
+    timeline: 'First week in Netherlands',
+    icon: MapPin,
+    tasks: [
+      'Register with municipality (GBA) for BSN number',
+      'Open Dutch bank account (required for salary/refunds)',
+      'Get health insurance (mandatory for non-EU, recommended for EU)',
+      'Pick up residence permit at IND office (non-EU)',
+      'Attend university orientation week',
+    ],
+  });
+
+  return steps;
 }

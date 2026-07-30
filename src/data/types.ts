@@ -82,3 +82,23 @@ export interface RoadmapStep {
   links: { label: string; url: string }[];
   warning?: string;
 }
+
+export interface RoadmapData {
+  nationality: 'eu' | 'non-eu' | null;
+  degree: 'bachelor' | 'master' | null;
+  field: string | null;
+  hasEnglishTest: boolean | null;
+  budget: 'scholarship-needed' | 'self-funded' | 'partial' | null;
+  intake: 'sept-2025' | 'sept-2026' | 'feb-2026' | null;
+  housing: 'university' | 'private' | 'undecided' | null;
+}
+
+export interface Profile {
+  id: string;
+  email: string;
+  fullName: string;
+  nationality: NationalityStatus;
+  targetDegree: DegreeLevel;
+  targetCity?: string; // Add this
+  createdAt: string;
+}

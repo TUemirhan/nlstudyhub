@@ -1,7 +1,10 @@
 import { useState } from 'react';
 import { X, Mail, Lock, User, GraduationCap, Globe, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
-import type { NationalityStatus, DegreeLevel } from '@/types';
+
+type NationalityStatus = 'eu' | 'non-eu';
+type DegreeLevel = 'bachelor' | 'master';
+type AuthMode = 'signin' | 'signup' | 'reset';
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -10,7 +13,8 @@ interface AuthModalProps {
 }
 
 export function AuthModal({ isOpen, onClose, defaultMode = 'signin' }: AuthModalProps) {
-  const [mode, setMode] = useState<'signin' | 'signup' | 'reset'>(defaultMode);
+  // CRITICAL FIX: Initialize with a value that ensures type includes 'reset'
+  const [mode, setMode] = useState<AuthMode>(defaultMode ?? 'signin');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
@@ -24,7 +28,6 @@ export function AuthModal({ isOpen, onClose, defaultMode = 'signin' }: AuthModal
 
   if (!isOpen) return null;
 
-  // Helper to translate Firebase error codes to user-friendly messages
   const getErrorMessage = (code: string): string => {
     const errorMap: Record<string, string> = {
       'auth/invalid-credential': 'Invalid email or password. Please try again.',
@@ -57,11 +60,12 @@ export function AuthModal({ isOpen, onClose, defaultMode = 'signin' }: AuthModal
           targetDegree: degree,
         });
         if (error) throw error;
-        onClose(); // Firebase auto-confirms in most cases, or you can enable email verification
+        onClose();
       } else if (mode === 'reset') {
         const { error } = await resetPassword(email);
         if (error) throw error;
         setSuccess('Password reset instructions sent to your email.');
+        setMode('signin'); // Switch back to signin after success
       }
     } catch (err: any) {
       setError(getErrorMessage(err.code) || err.message);
@@ -70,7 +74,7 @@ export function AuthModal({ isOpen, onClose, defaultMode = 'signin' }: AuthModal
     }
   };
 
-  const switchMode = (newMode: 'signin' | 'signup' | 'reset') => {
+  const switchMode = (newMode: AuthMode) => {
     setMode(newMode);
     setError(null);
     setSuccess(null);
@@ -116,7 +120,6 @@ export function AuthModal({ isOpen, onClose, defaultMode = 'signin' }: AuthModal
             </div>
           )}
 
-          {/* Full Name - Sign Up Only */}
           {mode === 'signup' && (
             <div className="space-y-1.5">
               <label className="text-xs font-semibold text-navy-900 uppercase tracking-wider">Full Name</label>
@@ -134,7 +137,6 @@ export function AuthModal({ isOpen, onClose, defaultMode = 'signin' }: AuthModal
             </div>
           )}
 
-          {/* Email */}
           <div className="space-y-1.5">
             <label className="text-xs font-semibold text-navy-900 uppercase tracking-wider">Email</label>
             <div className="relative">
@@ -150,7 +152,6 @@ export function AuthModal({ isOpen, onClose, defaultMode = 'signin' }: AuthModal
             </div>
           </div>
 
-          {/* Password - Hidden for reset */}
           {mode !== 'reset' && (
             <div className="space-y-1.5">
               <label className="text-xs font-semibold text-navy-900 uppercase tracking-wider">Password</label>
@@ -158,7 +159,7 @@ export function AuthModal({ isOpen, onClose, defaultMode = 'signin' }: AuthModal
                 <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                 <input
                   type="password"
-                  required={mode !== 'reset'}
+                  required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder={mode === 'signup' ? 'Min 6 characters' : 'Enter your password'}
@@ -169,7 +170,6 @@ export function AuthModal({ isOpen, onClose, defaultMode = 'signin' }: AuthModal
             </div>
           )}
 
-          {/* Nationality & Degree - Sign Up Only */}
           {mode === 'signup' && (
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
@@ -201,7 +201,6 @@ export function AuthModal({ isOpen, onClose, defaultMode = 'signin' }: AuthModal
             </div>
           )}
 
-          {/* Submit Button */}
           <button
             type="submit"
             disabled={isLoading}
@@ -209,4 +208,67 @@ export function AuthModal({ isOpen, onClose, defaultMode = 'signin' }: AuthModal
           >
             {isLoading ? (
               <span className="flex items-center justify-center gap-2">
-                <span className="h-4 w-4 animate-spin rounded-full border-2 
+                <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                Processing...
+              </span>
+            ) : mode === 'signin' ? (
+              'Sign In'
+            ) : mode === 'signup' ? (
+              'Create Account'
+            ) : (
+              'Send Reset Link'
+            )}
+          </button>
+
+          {/* Footer Links - Fixed with explicit type guards */}
+          <div className="flex flex-col gap-2 pt-2 text-center text-xs">
+            {mode === 'signin' && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => switchMode('reset')}
+                  className="text-slate-500 hover:text-navy-900 transition-colors"
+                >
+                  Forgot your password?
+                </button>
+                <div className="text-slate-500">
+                  Don't have an account?{' '}
+                  <button
+                    type="button"
+                    onClick={() => switchMode('signup')}
+                    className="font-semibold text-dutch-600 hover:text-dutch-700"
+                  >
+                    Sign up
+                  </button>
+                </div>
+              </>
+            )}
+            
+            {mode === 'signup' && (
+              <div className="text-slate-500">
+                Already have an account?{' '}
+                <button
+                  type="button"
+                  onClick={() => switchMode('signin')}
+                  className="font-semibold text-dutch-600 hover:text-dutch-700"
+                >
+                  Sign in
+                </button>
+              </div>
+            )}
+            
+            {mode === 'reset' && (
+              <button
+                type="button"
+                onClick={() => switchMode('signin')}
+                className="text-dutch-600 hover:text-dutch-700 font-semibold"
+              >
+                Back to sign in
+              </button>
+            )}
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}

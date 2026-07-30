@@ -11,7 +11,10 @@ import {
 } from 'firebase/auth';
 import { doc, setDoc, getDoc, updateDoc } from 'firebase/firestore';
 import { auth, db } from '@/firebase/config';
-import type { NationalityStatus, DegreeLevel } from '@/types';
+
+// Define types locally if @/types doesn't exist
+type NationalityStatus = 'eu' | 'non-eu';
+type DegreeLevel = 'bachelor' | 'master';
 
 interface Profile {
   id: string;
@@ -28,9 +31,9 @@ interface AuthContextType {
   isLoading: boolean;
   signIn: (email: string, password: string) => Promise<{ error: AuthError | null }>;
   signUp: (email: string, password: string, userData: { fullName: string; nationality: NationalityStatus; targetDegree: DegreeLevel }) => Promise<{ error: AuthError | null }>;
-  signOutUser: () => Promise<void>;
+  signOut: () => Promise<void>;
   resetPassword: (email: string) => Promise<{ error: AuthError | null }>;
-  updateUserProfile: (updates: Partial<Profile>) => Promise<{ error: Error | null }>;
+  updateProfile: (updates: Partial<Profile>) => Promise<{ error: Error | null }>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -45,7 +48,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(user);
       
       if (user) {
-        // Fetch profile from Firestore
         const profileDoc = await getDoc(doc(db, 'profiles', user.uid));
         if (profileDoc.exists()) {
           setProfile(profileDoc.data() as Profile);
@@ -69,10 +71,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       const user = userCredential.user;
 
-      // Update Firebase Auth profile (display name)
       await updateProfile(user, { displayName: userData.fullName });
 
-      // Create profile document in Firestore
       const profileData: Profile = {
         id: user.uid,
         email: user.email!,

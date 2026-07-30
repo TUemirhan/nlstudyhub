@@ -24,6 +24,12 @@ export function Navbar() {
     { name: 'about', label: 'About' },
   ] as const;
 
+  const handleProfileClick = () => {
+    console.log('Profile clicked, navigating...'); // Debug
+    setUserMenuOpen(false);
+    navigate({ name: 'dashboard' });
+  };
+
   const handleSignOut = async () => {
     await signOut();
     setUserMenuOpen(false);
@@ -76,25 +82,25 @@ export function Navbar() {
                     <div className="flex h-6 w-6 items-center justify-center rounded-full bg-dutch-100 text-dutch-700">
                       <User className="h-3.5 w-3.5" />
                     </div>
-                    <span className="max-w-[100px] truncate">{profile?.full_name || user.email?.split('@')[0]}</span>
+                    <span className="max-w-[100px] truncate">{profile?.fullName || user.email?.split('@')[0]}</span>
                     <ChevronDown className={`h-4 w-4 text-slate-400 transition-transform ${userMenuOpen ? 'rotate-180' : ''}`} />
                   </button>
 
                   {userMenuOpen && (
-                    <div className="absolute right-0 mt-2 w-48 rounded-lg border border-slate-200 bg-white shadow-lg py-1 animate-fade-in">
+                    <div className="absolute right-0 mt-2 w-48 rounded-lg border border-slate-200 bg-white shadow-lg py-1 z-50">
                       <div className="px-4 py-2 border-b border-slate-100">
                         <p className="text-xs text-slate-500">Signed in as</p>
                         <p className="text-sm font-medium text-navy-900 truncate">{user.email}</p>
                       </div>
+                      
+                      {/* FIXED: Profile Button */}
                       <button
-                        onClick={() => {
-                          setUserMenuOpen(false);
-                          // navigate({ name: 'dashboard' }); // Add dashboard route later
-                        }}
+                        onClick={handleProfileClick}
                         className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2"
                       >
                         <User className="h-4 w-4" /> My Profile
                       </button>
+                      
                       <button
                         onClick={handleSignOut}
                         className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
@@ -136,9 +142,7 @@ export function Navbar() {
                     setMobileMenuOpen(false);
                   }}
                   className={`w-full rounded-lg px-3 py-2 text-left text-sm font-medium ${
-                    isActive(link.name)
-                      ? 'bg-navy-50 text-navy-900'
-                      : 'text-slate-600 hover:bg-slate-50'
+                    isActive(link.name) ? 'bg-navy-50 text-navy-900' : 'text-slate-600 hover:bg-slate-50'
                   }`}
                 >
                   {link.label}
@@ -148,9 +152,15 @@ export function Navbar() {
               <div className="pt-2 border-t border-slate-100 mt-2">
                 {user ? (
                   <>
-                    <div className="px-3 py-2 text-sm text-slate-500">
-                      Signed in as <span className="font-medium text-navy-900">{user.email}</span>
-                    </div>
+                    <button
+                      onClick={() => {
+                        setMobileMenuOpen(false);
+                        navigate({ name: 'dashboard' });
+                      }}
+                      className="w-full rounded-lg px-3 py-2 text-left text-sm font-medium text-navy-900 hover:bg-slate-50"
+                    >
+                      My Profile
+                    </button>
                     <button
                       onClick={handleSignOut}
                       className="w-full rounded-lg px-3 py-2 text-left text-sm font-medium text-red-600 hover:bg-red-50"
@@ -175,10 +185,7 @@ export function Navbar() {
         )}
       </header>
 
-      <AuthModal 
-        isOpen={authModalOpen} 
-        onClose={() => setAuthModalOpen(false)} 
-      />
+      <AuthModal isOpen={authModalOpen} onClose={() => setAuthModalOpen(false)} />
     </>
   );
 }
