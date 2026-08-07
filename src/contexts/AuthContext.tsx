@@ -5,12 +5,14 @@ import {
   signOut,
   onAuthStateChanged,
   sendPasswordResetEmail,
-  updateProfile,
   sendEmailVerification,
+  updateProfile,
+  GoogleAuthProvider,        // Add this
+  signInWithPopup,           // Add this
   type User,
   type AuthError,
 } from 'firebase/auth';
-import { doc, setDoc, getDoc, updateDoc } from 'firebase/firestore';
+import { doc, setDoc, getDoc } from 'firebase/firestore';
 import { auth, db } from '@/firebase/config';
 
 type NationalityStatus = 'eu' | 'non-eu';
@@ -24,6 +26,7 @@ interface Profile {
   targetDegree: DegreeLevel;
   createdAt: string;
   emailVerified: boolean;
+  photoURL?: string;
 }
 
 interface AuthContextType {
@@ -32,6 +35,7 @@ interface AuthContextType {
   isLoading: boolean;
   signIn: (email: string, password: string) => Promise<{ error: AuthError | null; message?: string }>;
   signUp: (email: string, password: string, userData: { fullName: string; nationality: NationalityStatus; targetDegree: DegreeLevel }) => Promise<{ error: AuthError | null; message?: string }>;
+  signInWithGoogle: () => Promise<{ error: AuthError | null; message?: string }>;  // Add this
   signOut: () => Promise<void>;
   resetPassword: (email: string) => Promise<{ error: AuthError | null; message?: string }>;
   updateProfile: (updates: Partial<Profile>) => Promise<{ error: Error | null }>;
@@ -40,14 +44,14 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// Simple rate limiter (resets on page refresh, for persistent use localStorage)
+// Simple rate limiter
 const loginAttempts: Map<string, number[]> = new Map();
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-
+  
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       setUser(user);
@@ -67,30 +71,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => unsubscribe();
   }, []);
 
-  // Rate limiting check
-  const checkRateLimit = (email: string): boolean => {
-    const now = Date.now();
-    const attempts = loginAttempts.get(email) || [];
-    
-    // Keep only last 5 minutes
-    const recentAttempts = attempts.filter(time => now - time < 5 * 60 * 1000);
-    
-    if (recentAttempts.length >= 5) {
-      return false; // Too many attempts
-    }
-    
-    recentAttempts.push(now);
-    loginAttempts.set(email, recentAttempts);
-    return true;
-  };
-
-  const signUp = async (
-    email: string, 
-    password: string, 
-    userData: { fullName: string; nationality: NationalityStatus; targetDegree: DegreeLevel }
-  ) => {
+  // EMAIL SIGN UP
+  const signUp = async (email: string, password: string, userData: { fullName: string; nationality: NationalityStatus; targetDegree: DegreeLevel }) => {
     try {
-      // 1. Validate password strength
       if (password.length < 8) {
         return { 
           error: { code: 'auth/weak-password', message: 'Password must be at least 8 characters' } as AuthError,
@@ -98,20 +81,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         };
       }
 
-      // 2. Create user
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       const user = userCredential.user;
 
-      // 3. Send verification email immediately
-      await sendEmailVerification(user, {
-        url: window.location.origin + '/dashboard', // Redirect after verification
-        handleCodeInApp: true,
-      });
-
-      // 4. Update display name
       await updateProfile(user, { displayName: userData.fullName });
 
-      // 5. Create profile in Firestore
       const profileData: Profile = {
         id: user.uid,
         email: user.email!,
@@ -125,34 +99,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       await setDoc(doc(db, 'profiles', user.uid), profileData);
       setProfile(profileData);
       
-      return { 
-        error: null, 
-        message: 'Account created! Please check your email to verify your account.' 
-      };
+      return { error: null, message: 'Account created! Please verify your email.' };
     } catch (error: any) {
-      // Map Firebase errors to friendly messages
       const errorMessages: Record<string, string> = {
         'auth/email-already-in-use': 'An account with this email already exists.',
         'auth/invalid-email': 'Please enter a valid email address.',
         'auth/weak-password': 'Password is too weak. Use at least 8 characters.',
       };
-      
-      return { 
-        error: error as AuthError,
-        message: errorMessages[error.code] || 'Failed to create account. Please try again.'
-      };
+      return { error: error as AuthError, message: errorMessages[error.code] || 'Failed to create account.' };
     }
   };
 
+  // EMAIL SIGN IN
   const signIn = async (email: string, password: string) => {
-    // Check rate limiting
-    if (!checkRateLimit(email)) {
-      return {
-        error: { code: 'auth/too-many-requests', message: 'Too many attempts. Try again in 5 minutes.' } as AuthError,
-        message: 'Too many failed attempts. Please try again in 5 minutes.'
-      };
-    }
-
     try {
       await signInWithEmailAndPassword(auth, email, password);
       return { error: null };
@@ -162,13 +121,52 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         'auth/user-not-found': 'No account found with this email.',
         'auth/wrong-password': 'Incorrect password.',
         'auth/too-many-requests': 'Too many attempts. Try again later.',
-        'auth/user-disabled': 'This account has been disabled.',
       };
+      return { error: error as AuthError, message: errorMessages[error.code] || 'Login failed.' };
+    }
+  };
+
+  // GOOGLE SIGN IN - NEW!
+  const signInWithGoogle = async () => {
+    try {
+      const provider = new GoogleAuthProvider();
+      provider.addScope('email');
+      provider.addScope('profile');
       
-      return { 
-        error: error as AuthError,
-        message: errorMessages[error.code] || 'Login failed. Please check your credentials.'
+      const result = await signInWithPopup(auth, provider);
+      const user = result.user;
+      
+      // Check if user already has a profile
+      const profileDoc = await getDoc(doc(db, 'profiles', user.uid));
+      
+      if (!profileDoc.exists()) {
+        // New user - create profile
+        const profileData: Profile = {
+          id: user.uid,
+          email: user.email!,
+          fullName: user.displayName || 'Student',
+          nationality: 'non-eu', // Default, user can update later
+          targetDegree: 'master', // Default, user can update later
+          createdAt: new Date().toISOString(),
+          emailVerified: true, // Google emails are verified
+          photoURL: user.photoURL || undefined,
+        };
+        
+        await setDoc(doc(db, 'profiles', user.uid), profileData);
+        setProfile(profileData);
+      } else {
+        // Existing user - just set profile
+        setProfile(profileDoc.data() as Profile);
+      }
+      
+      return { error: null, message: 'Successfully signed in with Google!' };
+    } catch (error: any) {
+      const errorMessages: Record<string, string> = {
+        'auth/popup-closed-by-user': 'Sign-in cancelled. Please try again.',
+        'auth/popup-blocked': 'Popup was blocked. Please allow popups for this site.',
+        'auth/account-exists-with-different-credential': 'An account already exists with this email.',
       };
+      return { error: error as AuthError, message: errorMessages[error.code] || 'Google sign-in failed.' };
     }
   };
 
@@ -189,28 +187,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       await sendPasswordResetEmail(auth, email, {
         url: window.location.origin + '/dashboard',
       });
-      return { 
-        error: null,
-        message: 'Password reset link sent to your email.'
-      };
+      return { error: null, message: 'Password reset link sent to your email.' };
     } catch (error: any) {
-      const errorMessages: Record<string, string> = {
-        'auth/user-not-found': 'No account found with this email.',
-        'auth/invalid-email': 'Please enter a valid email address.',
-      };
-      
-      return { 
-        error: error as AuthError,
-        message: errorMessages[error.code] || 'Failed to send reset email.'
-      };
+      return { error: error as AuthError, message: 'Failed to send reset email.' };
     }
   };
 
   const updateUserProfile = async (updates: Partial<Profile>) => {
     if (!user) return { error: new Error('No user logged in') };
-    
     try {
-      await updateDoc(doc(db, 'profiles', user.uid), updates);
+      await setDoc(doc(db, 'profiles', user.uid), updates, { merge: true });
       setProfile(prev => prev ? { ...prev, ...updates } : null);
       return { error: null };
     } catch (error) {
@@ -225,6 +211,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isLoading,
       signIn,
       signUp,
+      signInWithGoogle,  // Add to provider
       signOut: signOutUser,
       resetPassword,
       updateProfile: updateUserProfile,

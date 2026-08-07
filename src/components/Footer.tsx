@@ -79,7 +79,7 @@ export function Footer() {
         {/* Bottom bar */}
         <div className="mt-10 flex flex-col items-center justify-between gap-4 border-t border-navy-800 pt-6 sm:flex-row">
           <p className="text-xs text-slate-500">
-            © {new Date().getFullYear()} NLStudyHub. Built for international students, by international students.
+            © {new Date().getFullYear()} NLStudyHub. Built for international students, by international student.
           </p>
           <div className="flex items-center gap-4">
             <button

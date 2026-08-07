@@ -1,4 +1,4 @@
-import { Scale, AlertTriangle, BookOpen, Copyright, UserCheck, RefreshCw, Ban } from 'lucide-react';
+import { Scale, AlertTriangle, BookOpen, Copyright, RefreshCw, Ban } from 'lucide-react';
 
 export function TermsPage() {
   return (

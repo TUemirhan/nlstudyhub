@@ -4,51 +4,75 @@ import { useRouter } from '@/router';
 import { 
   LogOut, MapPin, GraduationCap, Globe, 
   TrendingUp, Clock, CheckCircle2, ChevronRight,
-  BookOpen, Wallet, Home, Award, Mail,
+  BookOpen, Wallet, Home, Award,
   Bell, Flame, Star, AlertCircle,
   Calculator, FileText, Send, Trash2
 } from 'lucide-react';
 import { doc, getDoc, updateDoc, arrayUnion, arrayRemove } from 'firebase/firestore';
 import { db } from '@/firebase/config';
 
-const MOCK_SAVED_ITEMS = [
-  { id: '1', type: 'scholarship', name: 'NL Scholarship', detail: '€5,000', deadline: 'May 1' },
-  { id: '2', type: 'program', name: 'TU Delft - MSc Computer Science', detail: '€20,000/year', deadline: 'Dec 1' },
-];
+function getNextNumerusFixusDeadline() {
+  const now = new Date();
+  const currentYear = now.getFullYear();
+
+  let deadline = new Date(currentYear, 0, 15); // January 15 (month is 0-indexed)
+
+  // If this year's deadline already passed, use next year's
+  if (now > deadline) {
+    deadline = new Date(currentYear + 1, 0, 15);
+  }
+
+  const diff = deadline.getTime() - now.getTime();
+  const days = Math.ceil(diff / (1000 * 60 * 60 * 24));
+
+  return {
+    date: deadline,
+    daysRemaining: days
+  };
+}
 
 export function DashboardPage() {
   const { user, profile, signOut, resendVerification } = useAuth();
+  const numerusFixus = getNextNumerusFixusDeadline();
   const { navigate } = useRouter();
   const [roadmap, setRoadmap] = useState<any>(null);
-  const [stats] = useState<any>({ deadlineDays: 45 });
   const [loading, setLoading] = useState(true);
   const [activeRoadmapStep, setActiveRoadmapStep] = useState<string | null>(null);
-  const [savedItems, setSavedItems] = useState(MOCK_SAVED_ITEMS);
+  const [savedItems, setSavedItems] = useState<any[]>([]);
   const [completedSteps, setCompletedSteps] = useState<string[]>([]);
 
   useEffect(() => {
-    const loadData = async () => {
-      if (!user) {
-        setLoading(false);
-        return;
-      }
-      
-      try {
-        const roadmapDoc = await getDoc(doc(db, 'roadmaps', user.uid));
-        if (roadmapDoc.exists()) {
-          const data = roadmapDoc.data();
-          setRoadmap(data);
-          setCompletedSteps(data.completedSteps || []);
-        }
-      } catch (error) {
-        console.error('Error loading data:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
+  const loadData = async () => {
+    if (!user) {
+      setLoading(false);
+      return;
+    }
 
-    loadData();
-  }, [user]);
+    try {
+      // Load roadmap
+      const roadmapDoc = await getDoc(doc(db, 'roadmaps', user.uid));
+      if (roadmapDoc.exists()) {
+        const data = roadmapDoc.data();
+        setRoadmap(data);
+        setCompletedSteps(data.completedSteps || []);
+      }
+
+      // ✅ Load saved items
+      const savedDoc = await getDoc(doc(db, 'saved_items', user.uid));
+      if (savedDoc.exists()) {
+        const data = savedDoc.data();
+        setSavedItems(data.items || []);
+      }
+
+    } catch (error) {
+      console.error('Error loading data:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  loadData();
+}, [user]);
 
   const toggleStepComplete = async (stepId: string) => {
     if (!user) return;
@@ -72,8 +96,15 @@ export function DashboardPage() {
   };
 
   const deleteSavedItem = async (itemId: string) => {
-    setSavedItems(prev => prev.filter(item => item.id !== itemId));
-  };
+  if (!user) return;
+
+  const updated = savedItems.filter(item => item.id !== itemId);
+  setSavedItems(updated);
+
+  await updateDoc(doc(db, 'saved_items', user.uid), {
+    items: updated
+  });
+};
 
   const generateStepsWithIds = () => {
     if (!roadmap) return [];
@@ -165,7 +196,12 @@ export function DashboardPage() {
             <StatCard icon={Globe} label="Status" value={profile?.nationality === 'eu' ? "EU/EEA" : "Non-EU"} color="text-dutch-400" />
             <StatCard icon={GraduationCap} label="Degree" value={profile?.targetDegree === 'master' ? "Master's" : "Bachelor's"} color="text-blue-400" />
             <StatCard icon={TrendingUp} label="Progress" value={`${overallProgress}%`} color="text-green-400" highlight />
-            <StatCard icon={Clock} label="Deadline" value={`${stats.deadlineDays} days`} alert color="text-red-400" />
+            <StatCard 
+  icon={Clock} 
+  label="Numerus Fixus" 
+  value={`${numerusFixus.daysRemaining} days`} 
+  alert 
+/>
           </div>
         </div>
       </div>
@@ -367,7 +403,7 @@ export function DashboardPage() {
               <div className="space-y-3">
                 <div className="p-3 bg-red-50 dark:bg-red-900/20 rounded-lg border-l-4 border-red-500">
                   <p className="font-medium text-navy-900 dark:text-white text-sm">Numerus Fixus</p>
-                  <p className="text-xs text-red-600 dark:text-red-400 font-semibold">{stats.deadlineDays} days left</p>
+                  <p className="text-xs text-red-600 dark:text-red-400 font-semibold">{numerusFixus.daysRemaining} days left</p>
                 </div>
               </div>
             </div>

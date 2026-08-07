@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { Award, Search, CheckCircle2, AlertTriangle, Star, ArrowRight, ExternalLink, Info } from 'lucide-react';
+import { Award, Search, CheckCircle2, Star, ArrowRight, ExternalLink, Info } from 'lucide-react';
 import { scholarships } from '@/data/scholarships';
 import { useRouter } from '@/router';
 
