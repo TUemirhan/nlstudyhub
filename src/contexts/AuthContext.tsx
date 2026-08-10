@@ -7,8 +7,9 @@ import {
   sendPasswordResetEmail,
   sendEmailVerification,
   updateProfile,
-  GoogleAuthProvider,        // Add this
-  signInWithPopup,           // Add this
+  GoogleAuthProvider,
+  signInWithRedirect,
+  getRedirectResult,
   type User,
   type AuthError,
 } from 'firebase/auth';
@@ -35,7 +36,7 @@ interface AuthContextType {
   isLoading: boolean;
   signIn: (email: string, password: string) => Promise<{ error: AuthError | null; message?: string }>;
   signUp: (email: string, password: string, userData: { fullName: string; nationality: NationalityStatus; targetDegree: DegreeLevel }) => Promise<{ error: AuthError | null; message?: string }>;
-  signInWithGoogle: () => Promise<{ error: AuthError | null; message?: string }>;  // Add this
+  signInWithGoogle: () => Promise<{ error: AuthError | null; message?: string }>;
   signOut: () => Promise<void>;
   resetPassword: (email: string) => Promise<{ error: AuthError | null; message?: string }>;
   updateProfile: (updates: Partial<Profile>) => Promise<{ error: Error | null }>;
@@ -44,51 +45,87 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// Simple rate limiter
-const loginAttempts: Map<string, number[]> = new Map();
-
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  
+
+  // ─── Handle Google redirect result on page load ─────────
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      setUser(user);
-      
-      if (user) {
-        const profileDoc = await getDoc(doc(db, 'profiles', user.uid));
-        if (profileDoc.exists()) {
-          setProfile(profileDoc.data() as Profile);
+    const handleRedirectResult = async () => {
+      try {
+        const result = await getRedirectResult(auth);
+        if (result?.user) {
+          const u = result.user;
+          const profileDoc = await getDoc(doc(db, 'profiles', u.uid));
+
+          if (!profileDoc.exists()) {
+            const profileData: Profile = {
+              id: u.uid,
+              email: u.email!,
+              fullName: u.displayName || 'Student',
+              nationality: 'non-eu',
+              targetDegree: 'master',
+              createdAt: new Date().toISOString(),
+              emailVerified: true,
+              photoURL: u.photoURL || undefined,
+            };
+            await setDoc(doc(db, 'profiles', u.uid), profileData);
+            setProfile(profileData);
+          } else {
+            setProfile(profileDoc.data() as Profile);
+          }
+        }
+      } catch (err: any) {
+        console.error('Redirect result error:', err.code, err.message);
+      }
+    };
+
+    handleRedirectResult();
+  }, []);
+
+  // ─── Listen for auth state changes ─────────────────────
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      setUser(firebaseUser);
+
+      if (firebaseUser) {
+        try {
+          const profileDoc = await getDoc(doc(db, 'profiles', firebaseUser.uid));
+          if (profileDoc.exists()) {
+            setProfile(profileDoc.data() as Profile);
+          }
+        } catch (err) {
+          console.error('Error fetching profile:', err);
         }
       } else {
         setProfile(null);
       }
-      
+
       setIsLoading(false);
     });
 
     return () => unsubscribe();
   }, []);
 
-  // EMAIL SIGN UP
+  // ─── Email Sign Up ─────────────────────────────────────
   const signUp = async (email: string, password: string, userData: { fullName: string; nationality: NationalityStatus; targetDegree: DegreeLevel }) => {
     try {
       if (password.length < 8) {
-        return { 
+        return {
           error: { code: 'auth/weak-password', message: 'Password must be at least 8 characters' } as AuthError,
           message: 'Password must be at least 8 characters'
         };
       }
 
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-      const user = userCredential.user;
+      const newUser = userCredential.user;
 
-      await updateProfile(user, { displayName: userData.fullName });
+      await updateProfile(newUser, { displayName: userData.fullName });
 
       const profileData: Profile = {
-        id: user.uid,
-        email: user.email!,
+        id: newUser.uid,
+        email: newUser.email!,
         fullName: userData.fullName,
         nationality: userData.nationality,
         targetDegree: userData.targetDegree,
@@ -96,9 +133,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         emailVerified: false,
       };
 
-      await setDoc(doc(db, 'profiles', user.uid), profileData);
+      await setDoc(doc(db, 'profiles', newUser.uid), profileData);
       setProfile(profileData);
-      
+
       return { error: null, message: 'Account created! Please verify your email.' };
     } catch (error: any) {
       const errorMessages: Record<string, string> = {
@@ -110,7 +147,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  // EMAIL SIGN IN
+  // ─── Email Sign In ─────────────────────────────────────
   const signIn = async (email: string, password: string) => {
     try {
       await signInWithEmailAndPassword(auth, email, password);
@@ -126,45 +163,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  // GOOGLE SIGN IN - NEW!
+  // ─── Google Sign In (FIXED: redirect instead of popup) ─
   const signInWithGoogle = async () => {
     try {
       const provider = new GoogleAuthProvider();
       provider.addScope('email');
       provider.addScope('profile');
-      
-      const result = await signInWithPopup(auth, provider);
-      const user = result.user;
-      
-      // Check if user already has a profile
-      const profileDoc = await getDoc(doc(db, 'profiles', user.uid));
-      
-      if (!profileDoc.exists()) {
-        // New user - create profile
-        const profileData: Profile = {
-          id: user.uid,
-          email: user.email!,
-          fullName: user.displayName || 'Student',
-          nationality: 'non-eu', // Default, user can update later
-          targetDegree: 'master', // Default, user can update later
-          createdAt: new Date().toISOString(),
-          emailVerified: true, // Google emails are verified
-          photoURL: user.photoURL || undefined,
-        };
-        
-        await setDoc(doc(db, 'profiles', user.uid), profileData);
-        setProfile(profileData);
-      } else {
-        // Existing user - just set profile
-        setProfile(profileDoc.data() as Profile);
-      }
-      
-      return { error: null, message: 'Successfully signed in with Google!' };
+      provider.setCustomParameters({ prompt: 'select_account' });
+
+      // This redirects the entire page to Google
+      // The result is handled by getRedirectResult() in useEffect above
+      await signInWithRedirect(auth, provider);
+
+      // Page will navigate away — this return won't be reached
+      // unless the redirect fails immediately
+      return { error: null };
     } catch (error: any) {
+      console.error('Google sign-in error:', error);
       const errorMessages: Record<string, string> = {
-        'auth/popup-closed-by-user': 'Sign-in cancelled. Please try again.',
-        'auth/popup-blocked': 'Popup was blocked. Please allow popups for this site.',
-        'auth/account-exists-with-different-credential': 'An account already exists with this email.',
+        'auth/operation-not-allowed': 'Google sign-in is not enabled. Contact support.',
+        'auth/network-request-failed': 'Network error. Check your connection.',
       };
       return { error: error as AuthError, message: errorMessages[error.code] || 'Google sign-in failed.' };
     }
@@ -211,7 +229,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isLoading,
       signIn,
       signUp,
-      signInWithGoogle,  // Add to provider
+      signInWithGoogle,
       signOut: signOutUser,
       resetPassword,
       updateProfile: updateUserProfile,

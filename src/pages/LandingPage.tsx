@@ -85,12 +85,21 @@ export function LandingPage() {
   };
 
   const handleGoogleAuth = async () => {
-    setLoading(true);
-    setError('');
+  setLoading(true);
+  setError('');
+  try {
     const { error, message } = await signInWithGoogle();
-    if (error) { setError(message || 'Google sign-in failed'); setLoading(false); }
-    else { setShowAuth(false); navigate({ name: 'dashboard' }); }
-  };
+    if (error) {
+      setError(message || 'Google sign-in failed');
+      setLoading(false);
+    }
+    // If no error, the page will redirect to Google
+    // and come back — result handled in AuthContext useEffect
+  } catch (err: any) {
+    setError('Google sign-in failed. Please try again.');
+    setLoading(false);
+  }
+};
 
   const featuresList = [
     { icon: Globe2, title: 'Personalized Immigration Roadmap', desc: 'Step-by-step visa guidance tailored to your nationality (EU vs Non-EU).' },
