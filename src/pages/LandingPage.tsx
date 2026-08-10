@@ -163,7 +163,7 @@ export function LandingPage() {
               <div className="bg-dutch-500 text-white p-1.5 rounded-lg">
                 <Building2 className="h-6 w-6" />
               </div>
-              <span className="font-extrabold text-xl text-navy-900 dark:text-white tracking-tight">StudyHubNL</span>
+              <span className="font-extrabold text-xl text-navy-900 dark:text-white tracking-tight">NLStudyHub</span>
             </a>
 
             <nav className="hidden md:flex items-center gap-1">
