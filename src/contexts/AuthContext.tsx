@@ -9,6 +9,8 @@ import {
   updateProfile,
   GoogleAuthProvider,
   signInWithRedirect,
+  setPersistence,          
+  browserLocalPersistence, 
   getRedirectResult,
   type User,
   type AuthError,
@@ -189,23 +191,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // ─── Google Sign In ────────────────────────────────────
   const signInWithGoogle = async () => {
-    try {
-      const provider = new GoogleAuthProvider();
-      provider.addScope('email');
-      provider.addScope('profile');
-      provider.setCustomParameters({ prompt: 'select_account' });
+  try {
+    const provider = new GoogleAuthProvider();
+    provider.addScope('email');
+    provider.addScope('profile');
+    provider.setCustomParameters({ prompt: 'select_account' });
 
-      await signInWithRedirect(auth, provider);
-      return { error: null };
-    } catch (error: any) {
-      console.error('Google sign-in error:', error);
-      const errorMessages: Record<string, string> = {
-        'auth/operation-not-allowed': 'Google sign-in is not enabled. Contact support.',
-        'auth/network-request-failed': 'Network error. Check your connection.',
-      };
-      return { error: error as AuthError, message: errorMessages[error.code] || 'Google sign-in failed.' };
-    }
-  };
+    // FIX: Use IndexedDB instead of cookies for auth persistence
+    // This bypasses the browser's third-party cookie blocking
+    await setPersistence(auth, browserLocalPersistence);
+    
+    await signInWithRedirect(auth, provider);
+    return { error: null };
+  } catch (error: any) {
+    console.error('Google sign-in error:', error);
+    const errorMessages: Record<string, string> = {
+      'auth/operation-not-allowed': 'Google sign-in is not enabled. Contact support.',
+      'auth/network-request-failed': 'Network error. Check your connection.',
+    };
+    return { error: error as AuthError, message: errorMessages[error.code] || 'Google sign-in failed.' };
+  }
+};
 
   const resendVerification = async () => {
     if (user && !user.emailVerified) {
