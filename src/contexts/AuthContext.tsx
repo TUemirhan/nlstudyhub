@@ -34,6 +34,7 @@ interface AuthContextType {
   user: User | null;
   profile: Profile | null;
   isLoading: boolean;
+  isGoogleRedirect: boolean;
   signIn: (email: string, password: string) => Promise<{ error: AuthError | null; message?: string }>;
   signUp: (email: string, password: string, userData: { fullName: string; nationality: NationalityStatus; targetDegree: DegreeLevel }) => Promise<{ error: AuthError | null; message?: string }>;
   signInWithGoogle: () => Promise<{ error: AuthError | null; message?: string }>;
@@ -49,64 +50,87 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isGoogleRedirect, setIsGoogleRedirect] = useState(false);
+  
 
-  // ─── Handle Google redirect result on page load ─────────
+  // Helper: ensure user profile exists in Firestore
+  const ensureProfile = async (u: User): Promise<Profile> => {
+    const profileDoc = await getDoc(doc(db, 'profiles', u.uid));
+    if (profileDoc.exists()) {
+      return profileDoc.data() as Profile;
+    }
+    // New user — create profile
+    const profileData: Profile = {
+      id: u.uid,
+      email: u.email!,
+      fullName: u.displayName || 'Student',
+      nationality: 'non-eu',
+      targetDegree: 'master',
+      createdAt: new Date().toISOString(),
+      emailVerified: u.emailVerified || true,
+      photoURL: u.photoURL || undefined,
+    };
+    await setDoc(doc(db, 'profiles', u.uid), profileData);
+    return profileData;
+  };
+
+  // ─── Combined auth initialization ──────────────────────
   useEffect(() => {
-    const handleRedirectResult = async () => {
+    let unsubscribe: (() => void) | undefined;
+
+    const initAuth = async () => {
+      // Step 1: Process any Google redirect result FIRST
+      
+
       try {
         const result = await getRedirectResult(auth);
         if (result?.user) {
-          const u = result.user;
-          const profileDoc = await getDoc(doc(db, 'profiles', u.uid));
-
-          if (!profileDoc.exists()) {
-            const profileData: Profile = {
-              id: u.uid,
-              email: u.email!,
-              fullName: u.displayName || 'Student',
-              nationality: 'non-eu',
-              targetDegree: 'master',
-              createdAt: new Date().toISOString(),
-              emailVerified: true,
-              photoURL: u.photoURL || undefined,
-            };
-            await setDoc(doc(db, 'profiles', u.uid), profileData);
-            setProfile(profileData);
-          } else {
-            setProfile(profileDoc.data() as Profile);
-          }
+          const p = await ensureProfile(result.user);
+          setProfile(p);
+          setUser(result.user);
+          setIsGoogleRedirect(true);
         }
       } catch (err: any) {
-        console.error('Redirect result error:', err.code, err.message);
+        // auth/internal-error on first visit is normal — ignore it
+        if (err.code !== 'auth/internal-error') {
+          console.error('Redirect result error:', err.code, err.message);
+        }
       }
+
+      // Step 2: Set up auth state listener
+      unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+        if (firebaseUser) {
+          setUser(firebaseUser);
+          try {
+            const p = await ensureProfile(firebaseUser);
+            setProfile(p);
+          } catch (err) {
+            console.error('Error fetching profile:', err);
+          }
+        } else {
+          setUser(null);
+          setProfile(null);
+        }
+        setIsLoading(false);
+      });
     };
 
-    handleRedirectResult();
+    initAuth();
+
+    return () => {
+      if (unsubscribe) unsubscribe();
+    };
   }, []);
 
-  // ─── Listen for auth state changes ─────────────────────
+  // ─── Auto-navigate to dashboard after Google redirect ──
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-      setUser(firebaseUser);
-
-      if (firebaseUser) {
-        try {
-          const profileDoc = await getDoc(doc(db, 'profiles', firebaseUser.uid));
-          if (profileDoc.exists()) {
-            setProfile(profileDoc.data() as Profile);
-          }
-        } catch (err) {
-          console.error('Error fetching profile:', err);
-        }
-      } else {
-        setProfile(null);
-      }
-
-      setIsLoading(false);
-    });
-
-    return () => unsubscribe();
-  }, []);
+    if (isGoogleRedirect && user && !isLoading) {
+      // Small delay to ensure everything is settled
+      setTimeout(() => {
+        window.location.hash = '#/dashboard';
+      }, 100);
+    }
+  }, [isGoogleRedirect, user, isLoading]);
 
   // ─── Email Sign Up ─────────────────────────────────────
   const signUp = async (email: string, password: string, userData: { fullName: string; nationality: NationalityStatus; targetDegree: DegreeLevel }) => {
@@ -163,7 +187,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  // ─── Google Sign In (FIXED: redirect instead of popup) ─
+  // ─── Google Sign In ────────────────────────────────────
   const signInWithGoogle = async () => {
     try {
       const provider = new GoogleAuthProvider();
@@ -171,12 +195,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       provider.addScope('profile');
       provider.setCustomParameters({ prompt: 'select_account' });
 
-      // This redirects the entire page to Google
-      // The result is handled by getRedirectResult() in useEffect above
       await signInWithRedirect(auth, provider);
-
-      // Page will navigate away — this return won't be reached
-      // unless the redirect fails immediately
       return { error: null };
     } catch (error: any) {
       console.error('Google sign-in error:', error);
@@ -227,6 +246,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       user,
       profile,
       isLoading,
+      isGoogleRedirect,
       signIn,
       signUp,
       signInWithGoogle,
