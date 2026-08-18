@@ -1,4 +1,4 @@
-import { GraduationCap, Moon, Sun, LogOut } from 'lucide-react';
+import { GraduationCap, Moon, Sun, LogOut, User } from 'lucide-react';
 import { useRouter } from '@/router';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -25,7 +25,7 @@ export function Navbar() {
           {/* Right Side */}
           <div className="flex items-center gap-6">
             
-            {/* ✅ THEME TOGGLE — ALWAYS VISIBLE */}
+            {/* Theme Toggle */}
             <button
               onClick={toggleTheme}
               className="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
@@ -38,7 +38,6 @@ export function Navbar() {
               )}
             </button>
 
-            {/* If Logged In */}
             {user ? (
               <>
                 <nav className="hidden md:flex items-center gap-6 text-sm">
@@ -58,6 +57,16 @@ export function Navbar() {
                     Calculator
                   </button>
                 </nav>
+
+                {/* ✅ PROFILE BUTTON */}
+                <button
+                  onClick={() => navigate({ name: 'profile' })}
+                  className="p-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 hover:text-navy-900 dark:hover:text-white transition-colors"
+                  aria-label="Profile"
+                  title="Your Profile"
+                >
+                  <User className="h-5 w-5" />
+                </button>
 
                 <button
                   onClick={() => signOut()}
