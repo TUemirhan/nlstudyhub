@@ -1,13 +1,43 @@
-import { useState, useMemo } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Award, Search, CheckCircle2, Star, ArrowRight, ExternalLink, Info } from 'lucide-react';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { db } from '@/firebase/config';
 import { scholarships } from '@/data/scholarships';
+import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from '@/router';
+import { AuthModal } from '@/components/AuthModal';
 
 export function ScholarshipsPage() {
   const { navigate } = useRouter();
+  const { user } = useAuth();
   const [search, setSearch] = useState('');
   const [natFilter, setNatFilter] = useState<'all' | 'eu' | 'non-eu'>('all');
   const [degreeFilter, setDegreeFilter] = useState<'all' | 'bachelor' | 'master'>('all');
+  const [savedIds, setSavedIds] = useState<Set<string>>(new Set());
+  const [savingId, setSavingId] = useState<string | null>(null);
+  const [authModalOpen, setAuthModalOpen] = useState(false);
+
+  // Load which scholarships are already saved for this user
+  useEffect(() => {
+    const loadSaved = async () => {
+      if (!user) {
+        setSavedIds(new Set());
+        return;
+      }
+      try {
+        const savedDoc = await getDoc(doc(db, 'saved_items', user.uid));
+        if (savedDoc.exists()) {
+          const items = savedDoc.data().items || [];
+          setSavedIds(new Set(items.filter((i: any) => i.type === 'scholarship').map((i: any) => i.id)));
+        } else {
+          setSavedIds(new Set());
+        }
+      } catch (err) {
+        console.error('Error loading saved items:', err);
+      }
+    };
+    loadSaved();
+  }, [user]);
 
   const filtered = useMemo(() => {
     return scholarships.filter((s) => {
@@ -21,9 +51,56 @@ export function ScholarshipsPage() {
     });
   }, [search, natFilter, degreeFilter]);
 
-  // Helper to open external links safely
   const openExternalLink = (url: string) => {
     window.open(url, '_blank', 'noopener,noreferrer');
+  };
+
+  const toggleSave = async (sch: (typeof scholarships)[number]) => {
+    if (!user) {
+      setAuthModalOpen(true);
+      return;
+    }
+    if (savingId) return; // prevent double-clicks mid-write
+
+    const isSaved = savedIds.has(sch.id);
+    setSavingId(sch.id);
+
+    // Optimistic UI update
+    const newSavedIds = new Set(savedIds);
+    if (isSaved) {
+      newSavedIds.delete(sch.id);
+    } else {
+      newSavedIds.add(sch.id);
+    }
+    setSavedIds(newSavedIds);
+
+    try {
+      const savedRef = doc(db, 'saved_items', user.uid);
+      const savedDoc = await getDoc(savedRef);
+      const currentItems: any[] = savedDoc.exists() ? (savedDoc.data().items || []) : [];
+
+      let newItems;
+      if (isSaved) {
+        newItems = currentItems.filter((i) => i.id !== sch.id);
+      } else {
+        const newItem = {
+          id: sch.id,
+          type: 'scholarship',
+          name: sch.name,
+          detail: `${sch.provider} • €${sch.amount.toLocaleString()}`,
+          deadline: sch.deadline,
+        };
+        newItems = [...currentItems.filter((i) => i.id !== sch.id), newItem];
+      }
+
+      await setDoc(savedRef, { items: newItems }, { merge: true });
+    } catch (err) {
+      console.error('Error saving item:', err);
+      // Roll back optimistic update on failure
+      setSavedIds(savedIds);
+    } finally {
+      setSavingId(null);
+    }
   };
 
   return (
@@ -97,89 +174,103 @@ export function ScholarshipsPage() {
 
         {/* Scholarship Grid */}
         <div className="mt-6 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-          {filtered.map((sch) => (
-            <div key={sch.id} className="card-hover flex flex-col p-5">
-              <div className="flex items-center justify-between gap-2">
-                <Star className="h-5 w-5 text-dutch-500" />
-                <div className="flex gap-1.5">
-                  <span className={`badge ${
-                    sch.nationality === 'non-eu' ? 'bg-dutch-50 text-dutch-700' :
-                    sch.nationality === 'eu' ? 'bg-navy-50 text-navy-700' :
-                    'bg-slate-100 text-slate-700'
+          {filtered.map((sch) => {
+            const isSaved = savedIds.has(sch.id);
+            const isSaving = savingId === sch.id;
+            return (
+              <div key={sch.id} className="card-hover flex flex-col p-5">
+                <div className="flex items-center justify-between gap-2">
+                  <button
+                    onClick={() => toggleSave(sch)}
+                    disabled={isSaving}
+                    aria-label={isSaved ? `Remove ${sch.name} from saved items` : `Save ${sch.name}`}
+                    aria-pressed={isSaved}
+                    className="disabled:opacity-50 transition-transform hover:scale-110"
+                  >
+                    <Star
+                      className={`h-5 w-5 transition-colors ${
+                        isSaved ? 'text-dutch-500 fill-dutch-500' : 'text-dutch-500'
+                      }`}
+                    />
+                  </button>
+                  <div className="flex gap-1.5">
+                    <span className={`badge ${
+                      sch.nationality === 'non-eu' ? 'bg-dutch-50 text-dutch-700' :
+                      sch.nationality === 'eu' ? 'bg-navy-50 text-navy-700' :
+                      'bg-slate-100 text-slate-700'
+                    }`}>
+                      {sch.nationality === 'non-eu' ? 'Non-EU' : sch.nationality === 'eu' ? 'EU' : 'All'}
+                    </span>
+                    <span className="badge bg-slate-100 text-slate-600">
+                      {sch.degreeLevel === 'both' ? 'BSc + MSc' : sch.degreeLevel === 'master' ? 'MSc' : 'BSc'}
+                    </span>
+                  </div>
+                </div>
+                <h3 className="mt-3 text-base font-bold text-navy-900">{sch.name}</h3>
+                <p className="mt-1 text-xs text-slate-500">{sch.provider}</p>
+                <div className="mt-3 text-2xl font-extrabold text-navy-800">
+                  €{sch.amount.toLocaleString()}
+                </div>
+                <p className="mt-2 flex-1 text-xs leading-relaxed text-slate-500">{sch.description}</p>
+
+                <div className="mt-3 border-t border-slate-100 pt-3">
+                  <h4 className="text-xs font-semibold uppercase tracking-wider text-slate-400">Eligibility</h4>
+                  <ul className="mt-1.5 space-y-1">
+                    {sch.eligibility.map((e, i) => (
+                      <li key={i} className="flex items-start gap-1.5 text-xs text-slate-600">
+                        <CheckCircle2 className="mt-0.5 h-3 w-3 shrink-0 text-dutch-500" />
+                        {e}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+
+                <div className="mt-3 border-t border-slate-100 pt-3">
+                  <div className={`flex items-start gap-2 text-xs p-2.5 rounded-lg ${
+                    sch.stackable 
+                      ? 'bg-green-50 text-green-800 border border-green-200' 
+                      : 'bg-amber-50 text-amber-800 border border-amber-200'
                   }`}>
-                    {sch.nationality === 'non-eu' ? 'Non-EU' : sch.nationality === 'eu' ? 'EU' : 'All'}
+                    {sch.stackable ? (
+                      <>
+                        <CheckCircle2 className="h-4 w-4 shrink-0 text-green-600 mt-0.5" />
+                        <div className="flex-1">
+                          <span className="font-semibold block">Stackable</span>
+                          <span className="text-green-700/80 text-[10px] leading-tight block mt-0.5">
+                            Can combine with: {sch.stackableWith.join(', ')}
+                          </span>
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <Info className="h-4 w-4 shrink-0 text-amber-600 mt-0.5" />
+                        <div>
+                          <span className="font-semibold block">Non-stackable</span>
+                          <span className="text-amber-700/80 text-[10px] block mt-0.5">
+                            Must choose this OR other awards
+                          </span>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                </div>
+
+                <div className="mt-3 flex items-center justify-between text-xs">
+                  <span className="text-slate-500">
+                    Deadline: <span className="font-semibold text-navy-700">{sch.deadline}</span>
                   </span>
-                  <span className="badge bg-slate-100 text-slate-600">
-                    {sch.degreeLevel === 'both' ? 'BSc + MSc' : sch.degreeLevel === 'master' ? 'MSc' : 'BSc'}
-                  </span>
+                  <button
+                    onClick={() => openExternalLink(sch.link)}
+                    className="group flex items-center gap-1 font-semibold text-navy-700 hover:text-dutch-600 transition-colors"
+                    aria-label={`Apply for ${sch.name}`}
+                  >
+                    Apply
+                    <ExternalLink className="h-3 w-3 opacity-0 -translate-y-1 group-hover:opacity-100 group-hover:translate-y-0 transition-all" />
+                  </button>
                 </div>
               </div>
-              <h3 className="mt-3 text-base font-bold text-navy-900">{sch.name}</h3>
-              <p className="mt-1 text-xs text-slate-500">{sch.provider}</p>
-              <div className="mt-3 text-2xl font-extrabold text-navy-800">
-                €{sch.amount.toLocaleString()}
-              </div>
-              <p className="mt-2 flex-1 text-xs leading-relaxed text-slate-500">{sch.description}</p>
-
-              <div className="mt-3 border-t border-slate-100 pt-3">
-                <h4 className="text-xs font-semibold uppercase tracking-wider text-slate-400">Eligibility</h4>
-                <ul className="mt-1.5 space-y-1">
-                  {sch.eligibility.map((e, i) => (
-                    <li key={i} className="flex items-start gap-1.5 text-xs text-slate-600">
-                      <CheckCircle2 className="mt-0.5 h-3 w-3 shrink-0 text-dutch-500" />
-                      {e}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-
-              {/* IMPROVED Stackable Indicator */}
-              <div className="mt-3 border-t border-slate-100 pt-3">
-                <div className={`flex items-start gap-2 text-xs p-2.5 rounded-lg ${
-                  sch.stackable 
-                    ? 'bg-green-50 text-green-800 border border-green-200' 
-                    : 'bg-amber-50 text-amber-800 border border-amber-200'
-                }`}>
-                  {sch.stackable ? (
-                    <>
-                      <CheckCircle2 className="h-4 w-4 shrink-0 text-green-600 mt-0.5" />
-                      <div className="flex-1">
-                        <span className="font-semibold block">Stackable</span>
-                        <span className="text-green-700/80 text-[10px] leading-tight block mt-0.5">
-                          Can combine with: {sch.stackableWith.join(', ')}
-                        </span>
-                      </div>
-                    </>
-                  ) : (
-                    <>
-                      <Info className="h-4 w-4 shrink-0 text-amber-600 mt-0.5" />
-                      <div>
-                        <span className="font-semibold block">Non-stackable</span>
-                        <span className="text-amber-700/80 text-[10px] block mt-0.5">
-                          Must choose this OR other awards
-                        </span>
-                      </div>
-                    </>
-                  )}
-                </div>
-              </div>
-
-              {/* FIXED Apply Button */}
-              <div className="mt-3 flex items-center justify-between text-xs">
-                <span className="text-slate-500">
-                  Deadline: <span className="font-semibold text-navy-700">{sch.deadline}</span>
-                </span>
-                <button
-                  onClick={() => openExternalLink(sch.link)}
-                  className="group flex items-center gap-1 font-semibold text-navy-700 hover:text-dutch-600 transition-colors"
-                  aria-label={`Apply for ${sch.name}`}
-                >
-                  Apply
-                  <ExternalLink className="h-3 w-3 opacity-0 -translate-y-1 group-hover:opacity-100 group-hover:translate-y-0 transition-all" />
-                </button>
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
 
         {filtered.length === 0 && (
@@ -201,6 +292,8 @@ export function ScholarshipsPage() {
           </button>
         </div>
       </div>
+
+      <AuthModal isOpen={authModalOpen} onClose={() => setAuthModalOpen(false)} defaultMode="signin" />
     </div>
   );
 }
