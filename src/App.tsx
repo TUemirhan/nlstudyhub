@@ -14,7 +14,7 @@ import { PrivacyPage } from '@/pages/PrivacyPage';
 import { TermsPage } from '@/pages/TermsPage';
 import { ThemeProvider } from '@/contexts/ThemeContext';
 import { useEffect, useState } from 'react';
-
+import { ProfilePage } from '@/pages/ProfilePage';
 function AppContent() {
   const { route, navigate } = useRouter();
   const { user, isLoading } = useAuth();
@@ -70,7 +70,7 @@ function AppContent() {
         {route.name === 'program-detail' && <ProgramDetailPage programId={route.id} />}
         {route.name === 'scholarships' && <ScholarshipsPage />}
         {route.name === 'dashboard' && <DashboardPage />}
-        {route.name === 'profile' && <DashboardPage />}
+        {route.name === 'profile' && <ProfilePage />}
         {route.name === 'about' && <AboutPage />}
         {route.name === 'privacy' && <PrivacyPage />}
         {route.name === 'terms' && <TermsPage />}
