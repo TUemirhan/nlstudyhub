@@ -8,10 +8,7 @@ import {
   sendEmailVerification,
   updateProfile,
   GoogleAuthProvider,
-  signInWithRedirect,
-  setPersistence,          
-  browserLocalPersistence, 
-  getRedirectResult,
+  signInWithPopup,
   type User,
   type AuthError,
 } from 'firebase/auth';
@@ -36,7 +33,6 @@ interface AuthContextType {
   user: User | null;
   profile: Profile | null;
   isLoading: boolean;
-  isGoogleRedirect: boolean;
   signIn: (email: string, password: string) => Promise<{ error: AuthError | null; message?: string }>;
   signUp: (email: string, password: string, userData: { fullName: string; nationality: NationalityStatus; targetDegree: DegreeLevel }) => Promise<{ error: AuthError | null; message?: string }>;
   signInWithGoogle: () => Promise<{ error: AuthError | null; message?: string }>;
@@ -52,8 +48,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [isGoogleRedirect, setIsGoogleRedirect] = useState(false);
-  
 
   // Helper: ensure user profile exists in Firestore
   const ensureProfile = async (u: User): Promise<Profile> => {
@@ -61,7 +55,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (profileDoc.exists()) {
       return profileDoc.data() as Profile;
     }
-    // New user — create profile
     const profileData: Profile = {
       id: u.uid,
       email: u.email!,
@@ -69,78 +62,41 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       nationality: 'non-eu',
       targetDegree: 'master',
       createdAt: new Date().toISOString(),
-      emailVerified: u.emailVerified || true,
+      emailVerified: u.emailVerified,
       photoURL: u.photoURL || undefined,
     };
     await setDoc(doc(db, 'profiles', u.uid), profileData);
     return profileData;
   };
 
-  // ─── Combined auth initialization ──────────────────────
+  // ─── Auth state listener ────────────────────────────────
   useEffect(() => {
-    let unsubscribe: (() => void) | undefined;
-
-    const initAuth = async () => {
-      // Step 1: Process any Google redirect result FIRST
-      
-
-      try {
-        const result = await getRedirectResult(auth);
-        if (result?.user) {
-          const p = await ensureProfile(result.user);
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      if (firebaseUser) {
+        setUser(firebaseUser);
+        try {
+          const p = await ensureProfile(firebaseUser);
           setProfile(p);
-          setUser(result.user);
-          setIsGoogleRedirect(true);
+        } catch (err) {
+          console.error('Error fetching profile:', err);
         }
-      } catch (err: any) {
-        // auth/internal-error on first visit is normal — ignore it
-        if (err.code !== 'auth/internal-error') {
-          console.error('Redirect result error:', err.code, err.message);
-        }
+      } else {
+        setUser(null);
+        setProfile(null);
       }
+      setIsLoading(false);
+    });
 
-      // Step 2: Set up auth state listener
-      unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-        if (firebaseUser) {
-          setUser(firebaseUser);
-          try {
-            const p = await ensureProfile(firebaseUser);
-            setProfile(p);
-          } catch (err) {
-            console.error('Error fetching profile:', err);
-          }
-        } else {
-          setUser(null);
-          setProfile(null);
-        }
-        setIsLoading(false);
-      });
-    };
-
-    initAuth();
-
-    return () => {
-      if (unsubscribe) unsubscribe();
-    };
+    return () => unsubscribe();
   }, []);
-
-  // ─── Auto-navigate to dashboard after Google redirect ──
-  useEffect(() => {
-    if (isGoogleRedirect && user && !isLoading) {
-      // Small delay to ensure everything is settled
-      setTimeout(() => {
-        window.location.hash = '#/dashboard';
-      }, 100);
-    }
-  }, [isGoogleRedirect, user, isLoading]);
 
   // ─── Email Sign Up ─────────────────────────────────────
   const signUp = async (email: string, password: string, userData: { fullName: string; nationality: NationalityStatus; targetDegree: DegreeLevel }) => {
     try {
-      if (password.length < 8) {
+      if (password.length < 6) {
         return {
-          error: { code: 'auth/weak-password', message: 'Password must be at least 8 characters' } as AuthError,
-          message: 'Password must be at least 8 characters'
+          error: { code: 'auth/weak-password', message: 'Password must be at least 6 characters' } as AuthError,
+          message: 'Password must be at least 6 characters',
         };
       }
 
@@ -161,57 +117,64 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       await setDoc(doc(db, 'profiles', newUser.uid), profileData);
       setProfile(profileData);
+      setUser(newUser);
 
       return { error: null, message: 'Account created! Please verify your email.' };
     } catch (error: any) {
+      console.error('Sign up error:', error.code, error.message);
       const errorMessages: Record<string, string> = {
         'auth/email-already-in-use': 'An account with this email already exists.',
         'auth/invalid-email': 'Please enter a valid email address.',
-        'auth/weak-password': 'Password is too weak. Use at least 8 characters.',
+        'auth/weak-password': 'Password is too weak. Use at least 6 characters.',
       };
-      return { error: error as AuthError, message: errorMessages[error.code] || 'Failed to create account.' };
+      return { error: error as AuthError, message: errorMessages[error.code] || `Failed to create account: ${error.message}` };
     }
   };
 
   // ─── Email Sign In ─────────────────────────────────────
   const signIn = async (email: string, password: string) => {
     try {
-      await signInWithEmailAndPassword(auth, email, password);
+      const result = await signInWithEmailAndPassword(auth, email, password);
+      setUser(result.user);
       return { error: null };
     } catch (error: any) {
+      console.error('Sign in error:', error.code, error.message);
       const errorMessages: Record<string, string> = {
         'auth/invalid-credential': 'Invalid email or password.',
         'auth/user-not-found': 'No account found with this email.',
         'auth/wrong-password': 'Incorrect password.',
         'auth/too-many-requests': 'Too many attempts. Try again later.',
       };
-      return { error: error as AuthError, message: errorMessages[error.code] || 'Login failed.' };
+      return { error: error as AuthError, message: errorMessages[error.code] || `Login failed: ${error.message}` };
     }
   };
 
   // ─── Google Sign In ────────────────────────────────────
   const signInWithGoogle = async () => {
-  try {
-    const provider = new GoogleAuthProvider();
-    provider.addScope('email');
-    provider.addScope('profile');
-    provider.setCustomParameters({ prompt: 'select_account' });
+    try {
+      const provider = new GoogleAuthProvider();
+      provider.addScope('email');
+      provider.addScope('profile');
+      provider.setCustomParameters({ prompt: 'select_account' });
 
-    // FIX: Use IndexedDB instead of cookies for auth persistence
-    // This bypasses the browser's third-party cookie blocking
-    await setPersistence(auth, browserLocalPersistence);
-    
-    await signInWithRedirect(auth, provider);
-    return { error: null };
-  } catch (error: any) {
-    console.error('Google sign-in error:', error);
-    const errorMessages: Record<string, string> = {
-      'auth/operation-not-allowed': 'Google sign-in is not enabled. Contact support.',
-      'auth/network-request-failed': 'Network error. Check your connection.',
-    };
-    return { error: error as AuthError, message: errorMessages[error.code] || 'Google sign-in failed.' };
-  }
-};
+      const result = await signInWithPopup(auth, provider);
+      const u = result.user;
+      const p = await ensureProfile(u);
+      setProfile(p);
+      setUser(u);
+
+      return { error: null };
+    } catch (error: any) {
+      console.error('Google sign-in error:', error.code, error.message);
+      const errorMessages: Record<string, string> = {
+        'auth/popup-closed-by-user': 'Sign-in cancelled.',
+        'auth/popup-blocked': 'Popup blocked. Please allow popups.',
+        'auth/account-exists-with-different-credential': 'Account already exists with different sign-in method.',
+        'auth/unauthorized-domain': 'This domain is not authorized for Google sign-in.',
+      };
+      return { error: error as AuthError, message: errorMessages[error.code] || `Google sign-in failed: ${error.message}` };
+    }
+  };
 
   const resendVerification = async () => {
     if (user && !user.emailVerified) {
@@ -232,6 +195,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
       return { error: null, message: 'Password reset link sent to your email.' };
     } catch (error: any) {
+      console.error('Reset password error:', error.code, error.message);
       return { error: error as AuthError, message: 'Failed to send reset email.' };
     }
   };
@@ -252,7 +216,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       user,
       profile,
       isLoading,
-      isGoogleRedirect,
       signIn,
       signUp,
       signInWithGoogle,

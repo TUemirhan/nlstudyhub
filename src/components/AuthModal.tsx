@@ -13,7 +13,6 @@ interface AuthModalProps {
 }
 
 export function AuthModal({ isOpen, onClose, defaultMode = 'signin' }: AuthModalProps) {
-  // CRITICAL FIX: Initialize with a value that ensures type includes 'reset'
   const [mode, setMode] = useState<AuthMode>(defaultMode ?? 'signin');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -50,25 +49,37 @@ export function AuthModal({ isOpen, onClose, defaultMode = 'signin' }: AuthModal
 
     try {
       if (mode === 'signin') {
-        const { error } = await signIn(email, password);
-        if (error) throw error;
+        const { error, message } = await signIn(email, password);
+        if (error) {
+          setError(message || getErrorMessage(error.code));
+          return;
+        }
         onClose();
+        window.location.hash = '#/dashboard';
       } else if (mode === 'signup') {
-        const { error } = await signUp(email, password, {
+        const { error, message } = await signUp(email, password, {
           fullName,
           nationality,
           targetDegree: degree,
         });
-        if (error) throw error;
+        if (error) {
+          setError(message || getErrorMessage(error.code));
+          return;
+        }
         onClose();
+        window.location.hash = '#/dashboard';
       } else if (mode === 'reset') {
-        const { error } = await resetPassword(email);
-        if (error) throw error;
-        setSuccess('Password reset instructions sent to your email.');
-        setMode('signin'); // Switch back to signin after success
+        const { error, message } = await resetPassword(email);
+        if (error) {
+          setError(message || getErrorMessage(error.code));
+          return;
+        }
+        setSuccess(message || 'Password reset instructions sent to your email.');
+        setMode('signin');
       }
     } catch (err: any) {
-      setError(getErrorMessage(err.code) || err.message);
+      console.error('Auth modal submit error:', err);
+      setError(err.code ? getErrorMessage(err.code) : (err.message || 'An unexpected error occurred.'));
     } finally {
       setIsLoading(false);
     }
@@ -83,7 +94,6 @@ export function AuthModal({ isOpen, onClose, defaultMode = 'signin' }: AuthModal
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-navy-950/80 backdrop-blur-sm p-4 animate-fade-in">
       <div className="relative w-full max-w-md overflow-hidden rounded-2xl bg-white shadow-2xl">
-        {/* Header */}
         <div className="bg-navy-950 px-6 py-4 flex items-center justify-between">
           <div>
             <h2 className="text-lg font-bold text-white">
@@ -97,7 +107,7 @@ export function AuthModal({ isOpen, onClose, defaultMode = 'signin' }: AuthModal
               {mode === 'reset' && 'Enter your email to receive reset instructions'}
             </p>
           </div>
-          <button 
+          <button
             onClick={onClose}
             className="p-2 text-slate-400 hover:text-white transition-colors rounded-lg hover:bg-white/10"
           >
@@ -220,7 +230,6 @@ export function AuthModal({ isOpen, onClose, defaultMode = 'signin' }: AuthModal
             )}
           </button>
 
-          {/* Footer Links - Fixed with explicit type guards */}
           <div className="flex flex-col gap-2 pt-2 text-center text-xs">
             {mode === 'signin' && (
               <>
@@ -243,7 +252,7 @@ export function AuthModal({ isOpen, onClose, defaultMode = 'signin' }: AuthModal
                 </div>
               </>
             )}
-            
+
             {mode === 'signup' && (
               <div className="text-slate-500">
                 Already have an account?{' '}
@@ -256,7 +265,7 @@ export function AuthModal({ isOpen, onClose, defaultMode = 'signin' }: AuthModal
                 </button>
               </div>
             )}
-            
+
             {mode === 'reset' && (
               <button
                 type="button"

@@ -8,7 +8,7 @@ const heroBg = 'https://images.pexels.com/photos/6152717/pexels-photo-6152717.jp
 
 export function LandingPage() {
   const { navigate } = useRouter();
-  const { user, isLoading, isGoogleRedirect, signIn, signUp, signInWithGoogle } = useAuth();
+  const { user, isLoading, signIn, signUp, signInWithGoogle } = useAuth();
 
   const [showAuth, setShowAuth] = useState(false);
   const [isSignUp, setIsSignUp] = useState(true);
@@ -45,11 +45,11 @@ export function LandingPage() {
   }, [isDark]);
 
   useEffect(() => {
-  if (user && !isLoading && !isGoogleRedirect) {
+  if (user && !isLoading) {
     setShowAuth(false);
     navigate({ name: 'dashboard' });
   }
-}, [user, isLoading, isGoogleRedirect]);
+}, [user, isLoading]);
 
   const getNextDeadline = (month: number, day: number) => {
     const now = new Date();
